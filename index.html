@@ -2,6 +2,8 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pump Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#eef4fb;--card:#fff;--ink:#0d2a4a;--mute:#62799a;--blue:#1b6fe0;--deep:#0b3a8c;--ok:#12a36b;--warn:#e08a1b;--line:#d6e2f2;--hero1:#2a86f0;--hero2:#0b4fb3;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -14,9 +16,11 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Outfit","Segoe 
 .brand{font-weight:600;font-size:20px;letter-spacing:.3px}
 .pill{font-size:13px;padding:5px 11px;border-radius:99px;background:rgba(255,255,255,.18)}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.big{font-size:64px;font-weight:600;line-height:1;margin-top:18px}
-.big small{font-size:22px;font-weight:400;opacity:.85}
-.sub{opacity:.85;font-size:14px;margin-top:4px}
+.big{font-size:clamp(64px,21vw,92px);font-weight:300;line-height:1;margin-top:14px;letter-spacing:-.03em;white-space:nowrap;font-variant-numeric:lining-nums tabular-nums}
+.big #pct{background:linear-gradient(180deg,#fff 30%,#b9defc);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;filter:drop-shadow(0 4px 14px rgba(0,30,90,.35))}
+.big small{font-size:.3em;font-weight:300;opacity:.9;letter-spacing:0;margin-left:3px;vertical-align:.95em}
+.sub{opacity:.85;font-size:14px;margin-top:4px;font-variant-numeric:tabular-nums}
+#liters{font-size:16px;font-weight:400;margin-top:6px}
 .tank{width:150px;flex:none;margin-top:4px}
 .tank svg{width:150px;height:auto;overflow:visible}
 #lvl{transition:transform 1.2s cubic-bezier(.4,0,.2,1)}
@@ -66,6 +70,48 @@ details.card>summary{cursor:pointer;font-weight:600;font-size:15px}
 .btn.dng{color:#c62828;border-color:#c62828}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:6px}
 @media (prefers-reduced-motion:reduce){.water{transition:none}}
+/* ---- motion ---- */
+@keyframes rise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.6)}70%,100%{box-shadow:0 0 0 9px rgba(255,255,255,0)}}
+@keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.04,.86)}}
+@keyframes shim{from{transform:translateX(0)}to{transform:translateX(200px)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes heroShift{from{background-position:50% 0}to{background-position:50% 100%}}
+@keyframes rip{to{transform:scale(1);opacity:0}}
+@keyframes evIn{from{opacity:0;transform:translateX(-14px);background:rgba(27,111,224,.14)}to{opacity:1;transform:none;background:transparent}}
+section.on>*{animation:rise .6s cubic-bezier(.2,.8,.2,1) backwards}
+section.on>*:nth-child(2){animation-delay:0.05s}
+section.on>*:nth-child(3){animation-delay:0.10s}
+section.on>*:nth-child(4){animation-delay:0.15s}
+section.on>*:nth-child(5){animation-delay:0.20s}
+section.on>*:nth-child(6){animation-delay:0.25s}
+section.on>*:nth-child(7){animation-delay:0.30s}
+section.on>*:nth-child(8){animation-delay:0.35s}
+section.on>*:nth-child(9){animation-delay:0.40s}
+.hero{background:linear-gradient(170deg,var(--hero1),var(--hero2) 55%,var(--hero1));background-size:100% 230%;animation:heroShift 16s ease-in-out infinite alternate}
+.tank{animation:float 6s ease-in-out infinite}
+.tank svg{transition:filter .8s}
+.tank.pumping svg{filter:drop-shadow(0 0 12px rgba(143,208,255,.65))}
+.surf{transform-box:fill-box;transform-origin:center;animation:breathe 4s ease-in-out infinite}
+.shim{animation:shim 5s ease-in-out infinite}
+.dot{animation:pulse 2.2s ease-out infinite;transition:background .5s}
+.pill{transition:background .4s}
+.err:not([hidden]),.warn:not([hidden]){animation:slideDown .5s cubic-bezier(.2,.8,.2,1)}
+.bar.g{transform-box:fill-box;transform-origin:50% 100%;animation:grow .8s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:var(--d,0ms)}
+.vl.g{animation:fadeIn .5s .55s backwards}
+.btn{position:relative;overflow:hidden;transition:transform .15s,box-shadow .25s,background .25s,color .25s,opacity .25s}
+.btn:active:not(:disabled){transform:scale(.97)}
+.rip{position:absolute;border-radius:50%;background:rgba(255,255,255,.38);transform:scale(0);animation:rip .65s ease-out forwards;pointer-events:none}
+.btn.alt .rip{background:rgba(27,111,224,.18)}
+@media (hover:hover){.btn:hover:not(:disabled){box-shadow:0 6px 18px rgba(27,111,224,.28);transform:translateY(-1px)}.card{transition:transform .3s,box-shadow .3s}.card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(11,58,140,.12)}}
+.tabs button{transition:color .25s,transform .15s}
+.tabs button:active{transform:scale(.92)}
+.tabs .ind{position:absolute;top:-1px;left:0;width:25%;height:3px;border-radius:0 0 4px 4px;background:var(--blue);transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.ev.in{animation:evIn .7s ease-out}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
 </style></head><body>
 <div class="hero">
  <div class="top"><div class="brand">Pump Monitor</div><div class="pill" id="conn">Demo mode</div></div>
@@ -83,7 +129,8 @@ details.card>summary{cursor:pointer;font-weight:600;font-size:15px}
 <ellipse cx="70" cy="186" rx="62" ry="14" fill="#000" opacity=".18"/>
 <path d="M20 30V180A50 12 0 0 0 120 180V30A50 12 0 0 0 20 30Z" fill="rgba(255,255,255,.1)"/>
 <g clip-path="url(#cp)"><g id="lvl"><rect x="10" y="0" width="120" height="230" fill="url(#gW)"/>
-<ellipse cx="70" cy="0" rx="50" ry="12" fill="#c8e8ff" opacity=".9"/>
+<ellipse class="surf" cx="70" cy="0" rx="50" ry="12" fill="#c8e8ff" opacity=".9"/>
+<rect class="shim" x="-50" y="0" width="26" height="230" fill="#fff" opacity=".13"/>
 <ellipse class="ring" cx="70" cy="0" rx="50" ry="12" fill="none" stroke="#fff" stroke-width="1.5"/>
 <ellipse class="ring r2" cx="70" cy="0" rx="50" ry="12" fill="none" stroke="#fff" stroke-width="1.5"/>
 <g class="flow"><circle class="bub" cx="45" cy="70" r="3" fill="#fff" opacity=".7"/><circle class="bub" style="animation-delay:.8s" cx="75" cy="85" r="2.2" fill="#fff"/><circle class="bub" style="animation-delay:1.5s" cx="98" cy="75" r="3.4" fill="#fff"/></g>
@@ -201,6 +248,7 @@ details.card>summary{cursor:pointer;font-weight:600;font-size:15px}
 </section>
 </main>
 <nav class="tabs" role="tablist">
+ <span class="ind" id="ind" aria-hidden="true"></span>
  <button role="tab" aria-selected="true" data-t="home">Home</button>
  <button role="tab" aria-selected="false" data-t="control">Control</button>
  <button role="tab" aria-selected="false" data-t="history">History</button>
@@ -216,9 +264,13 @@ const FM={no_echo:"The water level sensor is not responding. The pump has been s
 const m2t=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
 const t2m=v=>{const a=v.split(":");return a[0]*60+ +a[1];};
 
-document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
- document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
+const tabBtns=[...document.querySelectorAll(".tabs button")];
+tabBtns.forEach((b,i)=>b.onclick=()=>{
+ tabBtns.forEach(x=>x.setAttribute("aria-selected",x===b));
+ $("ind").style.transform="translateX("+i*100+"%)";
  document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id===b.dataset.t));
+ if(b.dataset.t==="history"){["useChart","stChart","rtChart"].forEach(id=>{$(id)._sig=null;$(id)._drawn=false;});renderHist();}
+ window.scrollTo({top:0,behavior:"smooth"});
 });
 [["onR","onV","%"],["offR","offV","%"],["emR","emV"," cm"],["fuR","fuV"," cm"]].forEach(([r,v,u])=>{
  $(r).oninput=()=>{$(v).textContent=$(r).value+u;};
@@ -233,8 +285,8 @@ function renderHist(){
  if(!H.length){["useChart","stChart","rtChart"].forEach(i=>bars($(i),[]));return;}
  const sum=(a,k)=>a.reduce((t,x)=>t+x[k],0),L=H.slice(-range),t=H[H.length-1],w=H.slice(-7),m=H.slice(-30);
  const mx=k=>Math.max(1,...L.map(x=>x[k]));
- $("uT").textContent=Math.round(t.l);$("u7").textContent=Math.round(sum(w,"l"));$("u30").textContent=Math.round(sum(m,"l"));
- $("avg").textContent=Math.round(sum(m,"l")/m.length);
+ tween($("uT"),Math.round(t.l));tween($("u7"),Math.round(sum(w,"l")));tween($("u30"),Math.round(sum(m,"l")));
+ tween($("avg"),Math.round(sum(m,"l")/m.length));
  const lb=L.map((x,i)=>{const d=new Date();d.setDate(d.getDate()-(L.length-1-i));return i===L.length-1?"Today":L.length<=7?d.toLocaleDateString(undefined,{weekday:"short"}):String(d.getDate());});
  bars($("useChart"),L.map(x=>x.l),mx("l"),"#2a86f0",lb,{emptyMsg:"No water use recorded yet"});
  bars($("stChart"),L.map(x=>x.s),mx("s"),"#12a36b",lb,{emptyMsg:"No pump starts recorded yet"});
@@ -265,7 +317,7 @@ $("calF").onclick=()=>cal("full");$("calE").onclick=()=>cal("empty");$("calL").o
 $("clrFault").onclick=async()=>{if(base){try{await F(base+"/api/clearfault");}catch(e){}}else S.fault="";tick();};
 $("simF").onclick=()=>{if(base)return;S.fault=S.fault?"":"no_echo";S.latched=false;render();};
 const LS={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
-const FB_DEFAULT={db:"",key:""}; // optional: paste your Firebase database URL and web API key here to hide those fields
+const FB_DEFAULT={db:"https://watermotor-default-rtdb.asia-southeast1.firebasedatabase.app",key:"AIzaSyDf6Te_BKACOw_OMZBun8EmaEQfKhbOi0c"}; // optional: paste your Firebase database URL and web API key here to hide those fields
 const FB=(()=>{let c={db:FB_DEFAULT.db,key:FB_DEFAULT.key};if(!c.db||!c.key){try{const s=JSON.parse(localStorage.getItem("fbcfg")||"null");if(s&&s.db&&s.key)c={db:s.db,key:s.key};}catch(e){}}return c;})();
 function hideCfg(){$("fbCfg").hidden=!!(FB.db&&FB.key);}
 let cloud=null;
@@ -361,13 +413,13 @@ function track(){
 function fmtH(h){if(!isFinite(h)||h<0)return "--";if(h<1)return Math.max(1,Math.round(h*60))+" min";if(h<48)return h.toFixed(1)+" h";return Math.round(h/24)+" days";}
 function renderHome(){
  const t=H.length?H[H.length-1]:null;
- if(t){$("hL").textContent=Math.round(t.l);$("hR").textContent=Math.round(t.r);$("hS").textContent=t.s;}
+ if(t){tween($("hL"),Math.round(t.l));tween($("hR"),Math.round(t.r));tween($("hS"),t.s);}
  const man=S.mode==="manual";
  ["hAuto","mAuto"].forEach(i=>$(i).classList.toggle("alt",man));["hMan","mMan"].forEach(i=>$(i).classList.toggle("alt",!man));
  $("hOn").disabled=$("hOff").disabled=!man||!!S.fault||!!S.stale;
  $("hNote").textContent=man?"":"Switch to Manual to start or stop the pump yourself.";
  const liters=S.pct/100*cfg.tank,res=Math.max(0,(S.pct-cfg.on)/100*cfg.tank);
- $("fcLeft").textContent=Math.round(liters);$("fcRes").textContent=Math.round(res);
+ tween($("fcLeft"),Math.round(liters));tween($("fcRes"),Math.round(res));
  const w=H.slice(-8,-1).filter(x=>x.l>0),per=w.length>=3?w.reduce((a,x)=>a+x.l,0)/w.length/24:0;
  let main="--",sub="Needs a few days of usage history";
  if(S.fault||S.stale){sub="Unavailable during a fault or lost connection";}
@@ -382,13 +434,27 @@ function renderHome(){
   sw=m2t(cfg.schS)+" to "+m2t(cfg.schE)+(open?", open now":", closed now");}
  $("sysW").textContent=sw;
  $("sysU").textContent=lastUp?lastUp.toTimeString().slice(0,8):"--";
- $("evList").innerHTML=EV.length?EV.map(e=>'<div class="ev"><span>'+e.t+'</span><span>'+e.w+'</span></div>').join(""):'<div class="note">No events yet.</div>';
+ const es=EV.map(e=>e.t+e.w).join("|");if(es!==evSig){evSig=es;$("evList").innerHTML=EV.length?EV.map((e,i)=>'<div class="ev'+(i===0?" in":"")+'"><span>'+e.t+'</span><span>'+e.w+'</span></div>').join(""):'<div class="note">No events yet.</div>';}
 }
 $("hAuto").onclick=()=>$("mAuto").onclick();$("hMan").onclick=()=>$("mMan").onclick();
 $("hOn").onclick=()=>$("pOn").onclick();$("hOff").onclick=()=>$("pOff").onclick();
 $("r7").onclick=()=>{range=7;renderHist();};$("r30").onclick=()=>{range=30;renderHist();};
+let evSig;
+const RM=matchMedia("(prefers-reduced-motion:reduce)").matches;
+function tween(el,to,suf){suf=suf||"";
+ if(RM){el.textContent=to+suf;el._v=to;return;}
+ if(el._to===to)return;
+ cancelAnimationFrame(el._raf);
+ const from=typeof el._v==="number"?el._v:0,t0=performance.now(),dur=750;el._to=to;
+ const step=n=>{const k=Math.min(1,(n-t0)/dur),v=Math.round(from+(to-from)*(1-Math.pow(1-k,3)));el._v=v;el.textContent=v+suf;if(k<1)el._raf=requestAnimationFrame(step);};
+ el._raf=requestAnimationFrame(step);}
+document.addEventListener("pointerdown",e=>{const b=e.target.closest&&e.target.closest(".btn");if(!b||b.disabled)return;
+ const r=b.getBoundingClientRect(),d=Math.max(r.width,r.height)*2,x=document.createElement("span");x.className="rip";
+ x.style.cssText="width:"+d+"px;height:"+d+"px;left:"+(e.clientX-r.left-d/2)+"px;top:"+(e.clientY-r.top-d/2)+"px";
+ b.appendChild(x);setTimeout(()=>x.remove(),700);});
 function bars(el,arr,max,color,lab,o){
  o=o||{};const W=320,HH=170,L=32,R=8,T=16,B=22,pw=W-L-R,ph=HH-T-B,n=arr.length;
+ const sig=JSON.stringify([arr,lab,o.lines,max]);if(el._sig===sig)return;el._sig=sig;const g=el._drawn?"":" g";el._drawn=true;
  if(!n){el.innerHTML='<text x="160" y="85" text-anchor="middle" font-size="12" fill="var(--mute)">No data yet</text>';return;}
  const nice=v=>{if(v<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(v))),f=v/p;return(f<=1?1:f<=2?2:f<=5?5:10)*p;};
  const top=o.fixed||nice(max),fv=v=>Number.isInteger(v)||Math.abs(v)>=10?String(Math.round(v)):v.toFixed(1);
@@ -396,8 +462,8 @@ function bars(el,arr,max,color,lab,o){
  let s="";
  [0,.5,1].forEach(g=>{const v=top*g,y=Y(v);s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L-4}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--mute)">${fv(v)}${o.unit||""}</text>`;});
  arr.forEach((v,i)=>{const x=L+i*bw+(bw-w)/2,h=Math.max(v>0?1.5:0,T+ph-Y(v)),cx=x+w/2;
-  s+=`<rect x="${x}" y="${T+ph-h}" width="${w}" height="${h}" rx="2" fill="${color}"/>`;
-  if((n<=10||i===n-1||i===mi)&&(v>0||n<=10))s+=`<text x="${cx}" y="${T+ph-h-3}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--ink)">${fv(v)}</text>`;
+  s+=`<rect class="bar${g}" style="--d:${Math.min(i*22,600)}ms" x="${x}" y="${T+ph-h}" width="${w}" height="${h}" rx="2" fill="${color}"/>`;
+  if((n<=10||i===n-1||i===mi)&&(v>0||n<=10))s+=`<text class="vl${g}" x="${cx}" y="${T+ph-h-3}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--ink)">${fv(v)}</text>`;
   const t=lab&&lab[i];
   if(t&&(o.all||n<=10||(n-1-i)%5===0)){const e=cx>W-22;s+=`<text x="${e?W-2:cx}" y="${HH-6}" text-anchor="${e?"end":"middle"}" font-size="9" fill="var(--mute)">${t}</text>`;}});
  (o.lines||[]).forEach(l=>{const y=Y(l.v);s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="${l.c}" stroke-width="1.2" stroke-dasharray="4 3"/><text x="${W-R}" y="${y-2}" text-anchor="end" font-size="9" fill="${l.c}">${l.t}</text>`;});
@@ -406,7 +472,7 @@ function bars(el,arr,max,color,lab,o){
 function render(){
  const p=Math.round(S.pct);
  const bad=!!(S.fault||S.stale);
- $("pct").textContent=bad?"--":p;$("liters").textContent=bad?"-- liters":Math.round(S.pct/100*cfg.tank)+" liters";
+ if(bad){["pct","liters"].forEach(i=>{cancelAnimationFrame($(i)._raf);$(i)._v=$(i)._to=undefined;});$("pct").textContent="--";$("liters").textContent="-- liters";}else{tween($("pct"),p);tween($("liters"),Math.round(S.pct/100*cfg.tank)," liters");}
  $("dist").textContent="Distance to water "+S.dist.toFixed(0)+" cm";$("calD").textContent=S.dist.toFixed(1);
  const Y=v=>180-v/100*150;
  $("lvl").style.transform=`translateY(${Y(S.pct)}px)`;
