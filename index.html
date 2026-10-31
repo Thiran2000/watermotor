@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pump Monitor</title>
+<style>
+:root{--bg:#eef4fb;--card:#fff;--ink:#0d2a4a;--mute:#62799a;--blue:#1b6fe0;--deep:#0b3a8c;--ok:#12a36b;--warn:#e08a1b;--line:#d6e2f2;--hero1:#2a86f0;--hero2:#0b4fb3;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#07121f;--card:#0e2038;--ink:#e6f0ff;--mute:#8aa3c6;--line:#1c3556;--hero1:#1a5fc4;--hero2:#082a63}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Outfit","Segoe UI",system-ui,sans-serif;max-width:480px;margin:auto;min-height:100vh;padding-bottom:84px}
+.hero{background:linear-gradient(170deg,var(--hero1),var(--hero2));color:#fff;padding:22px 22px 30px;border-radius:0 0 28px 28px}
+.top{display:flex;justify-content:space-between;align-items:center}
+.brand{font-weight:600;font-size:20px;letter-spacing:.3px}
+.pill{font-size:13px;padding:5px 11px;border-radius:99px;background:rgba(255,255,255,.18)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.big{font-size:64px;font-weight:600;line-height:1;margin-top:18px}
+.big small{font-size:22px;font-weight:400;opacity:.85}
+.sub{opacity:.85;font-size:14px;margin-top:4px}
+.tank{width:150px;flex:none;margin-top:4px}
+.tank svg{width:150px;height:auto;overflow:visible}
+#lvl{transition:transform 1.2s cubic-bezier(.4,0,.2,1)}
+.mk{transition:transform .6s}
+.mk text{font-size:9px;fill:#fff}
+@keyframes ring{0%{transform:scale(.25);opacity:.8}100%{transform:scale(1);opacity:0}}
+.ring{transform-box:fill-box;transform-origin:center;animation:ring 3.2s ease-out infinite}
+.ring.r2{animation-delay:1.6s}
+@keyframes sway{0%,100%{transform:translateX(-3px)}50%{transform:translateX(3px)}}
+.sheen{animation:sway 4s ease-in-out infinite}
+@keyframes bub{0%{transform:translateY(0);opacity:0}15%{opacity:.85}100%{transform:translateY(-60px);opacity:0}}
+.bub{animation:bub 2.4s ease-in infinite}
+@keyframes drip{0%{transform:translateY(0);opacity:1}100%{transform:translateY(45px);opacity:0}}
+.drip{animation:drip .8s linear infinite}
+.flow{display:none}.pumping .flow{display:block}
+@media (prefers-reduced-motion:reduce){.ring,.sheen,.bub,.drip{animation:none}#lvl,.mk{transition:none}}
+main{padding:16px}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:14px;border:1px solid var(--line)}
+h2{font-size:15px;margin:0 0 10px;font-weight:600}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat b{font-size:26px;font-weight:600}.stat span{color:var(--mute);font-size:13px;display:block}
+svg{width:100%;height:120px;display:block}
+.tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{flex:1;border:0;background:none;color:var(--mute);padding:12px 0 10px;font:inherit;font-size:13px;cursor:pointer}
+.tabs button[aria-selected=true]{color:var(--blue);font-weight:600}
+.tabs button:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+section{display:none}section.on{display:block}
+label{display:block;font-size:14px;margin:14px 0 4px}
+input[type=range]{width:100%;accent-color:var(--blue)}
+.val{float:right;font-weight:600;color:var(--blue)}
+.btn{border:0;background:var(--blue);color:#fff;border-radius:12px;padding:12px 16px;font:inherit;font-weight:600;cursor:pointer;width:100%;margin-top:14px}
+.btn.alt{background:var(--card);color:var(--blue);border:1.5px solid var(--blue)}
+.seg{display:flex;gap:8px}.seg .btn{margin-top:0}
+input[type=text],input[type=password]{width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+.note{color:var(--mute);font-size:12.5px;margin-top:8px}
+.warn{background:rgba(224,138,27,.16);border-radius:12px;padding:11px 13px;font-size:13.5px;margin-bottom:14px}
+.chk{width:20px;height:20px;accent-color:var(--blue)}
+.err{background:#c62828;color:#fff;border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:14px}
+.err .btn{background:#fff;color:#c62828;margin-top:10px}
+.tank.bad #lvl{opacity:.3}
+.kv,.ev{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.kv:first-of-type,.ev:first-child{border-top:0}
+.kv b{font-weight:600}.ev span:last-child{color:var(--mute)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:6px}
+@media (prefers-reduced-motion:reduce){.water{transition:none}}
+</style></head><body>
+<div class="hero">
+ <div class="top"><div class="brand">Pump Monitor</div><div class="pill" id="conn">Demo mode</div></div>
+ <div class="row"><div>
+  <div class="big"><span id="pct">--</span><small>%</small></div>
+  <div class="sub" id="liters">-- liters</div>
+  <div class="sub" id="dist">Distance to water -- cm</div>
+  <div class="sub"><span class="dot" id="sdot"></span><span id="status">--</span></div>
+ </div>
+ <div class="tank" id="tankViz"><svg viewBox="0 0 170 210" role="img" aria-label="Water tank level">
+<defs>
+<linearGradient id="gW" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset="1" stop-color="#1b6fe0"/></linearGradient>
+<linearGradient id="gG" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset=".22" stop-color="#fff" stop-opacity=".06"/><stop offset=".8" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#001" stop-opacity=".22"/></linearGradient>
+<clipPath id="cp"><path d="M20 30V180A50 12 0 0 0 120 180V30A50 12 0 0 0 20 30Z"/></clipPath></defs>
+<ellipse cx="70" cy="186" rx="62" ry="14" fill="#000" opacity=".18"/>
+<path d="M20 30V180A50 12 0 0 0 120 180V30A50 12 0 0 0 20 30Z" fill="rgba(255,255,255,.1)"/>
+<g clip-path="url(#cp)"><g id="lvl"><rect x="10" y="0" width="120" height="230" fill="url(#gW)"/>
+<ellipse cx="70" cy="0" rx="50" ry="12" fill="#c8e8ff" opacity=".9"/>
+<ellipse class="ring" cx="70" cy="0" rx="50" ry="12" fill="none" stroke="#fff" stroke-width="1.5"/>
+<ellipse class="ring r2" cx="70" cy="0" rx="50" ry="12" fill="none" stroke="#fff" stroke-width="1.5"/>
+<g class="flow"><circle class="bub" cx="45" cy="70" r="3" fill="#fff" opacity=".7"/><circle class="bub" style="animation-delay:.8s" cx="75" cy="85" r="2.2" fill="#fff"/><circle class="bub" style="animation-delay:1.5s" cx="98" cy="75" r="3.4" fill="#fff"/></g>
+</g></g>
+<rect class="sheen" x="30" y="40" width="9" height="130" rx="4.5" fill="#fff" opacity=".22" clip-path="url(#cp)"/>
+<path d="M20 30V180A50 12 0 0 0 120 180V30A50 12 0 0 0 20 30Z" fill="url(#gG)"/>
+<path d="M20 30V180A50 12 0 0 0 120 180V30A50 12 0 0 0 20 30Z" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="2"/>
+<ellipse cx="70" cy="30" rx="50" ry="12" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2.5"/>
+<g class="flow"><rect x="63" y="0" width="14" height="26" rx="3" fill="#fff" opacity=".6"/><circle class="drip" cx="70" cy="30" r="2.6" fill="#bfe3ff"/><circle class="drip" style="animation-delay:.4s" cx="70" cy="30" r="2.6" fill="#bfe3ff"/></g>
+<g class="mk" id="mOff"><line x1="20" x2="124" y1="0" y2="0" stroke="#fff" stroke-dasharray="3 3" opacity=".8"/><text x="128" y="3">Pump off</text></g>
+<g class="mk" id="mOn"><line x1="20" x2="124" y1="0" y2="0" stroke="#fff" stroke-dasharray="3 3" opacity=".8"/><text x="128" y="3">Pump on</text></g>
+</svg></div>
+</div>
+<main>
+<div id="fault" class="err" role="alert" hidden><div id="faultMsg"></div><button class="btn" id="clrFault" hidden>Clear fault</button></div>
+<section id="home" class="on">
+ <div class="card"><h2>Pump</h2>
+  <div class="row"><div class="stat"><b id="pstate">--</b><span id="pmode">--</span></div>
+  </div>
+  <div class="seg" style="margin-top:14px"><button class="btn" id="hAuto">Auto</button><button class="btn alt" id="hMan">Manual</button></div>
+  <div class="seg" style="margin-top:10px"><button class="btn alt" id="hOn">Turn on</button><button class="btn alt" id="hOff">Turn off</button></div>
+  <div class="note" id="hNote"></div></div>
+ <div class="card"><h2>Today</h2><div class="grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="stat"><b id="hL">--</b><span>liters used</span></div>
+  <div class="stat"><b id="hR">--</b><span>minutes pump ran</span></div>
+  <div class="stat"><b id="hS">--</b><span>pump starts</span></div>
+  </div></div>
+ <div class="card"><h2>Outlook</h2>
+  <div class="stat"><b id="fcMain">--</b><span id="fcSub">--</span></div>
+  <div class="grid" style="margin-top:14px">
+  <div class="stat"><b id="fcLeft">--</b><span>liters in the tank</span></div>
+  <div class="stat"><b id="fcRes">--</b><span>liters before pump starts</span></div></div></div>
+ <div class="card"><h2>Water level, last 24 samples</h2><svg id="lvlChart" viewBox="0 0 240 120" preserveAspectRatio="none"></svg></div>
+ <div class="card"><h2>System</h2>
+  <div class="kv"><span>Controller</span><b id="sysC">--</b></div>
+  <div class="kv"><span>Level sensor</span><b id="sysS">--</b></div>
+  <div class="kv"><span>Fill schedule</span><b id="sysW">--</b></div>
+  <div class="kv"><span>Last update</span><b id="sysU">--</b></div></div>
+ <div class="card"><h2>Recent activity</h2><div id="evList"></div>
+  <div class="note">Shows events seen while this page is open.</div></div>
+</section>
+<section id="control">
+ <div class="card"><h2>Pump mode</h2>
+  <div class="seg"><button class="btn" id="mAuto">Auto</button><button class="btn alt" id="mMan">Manual</button></div>
+  <div class="seg" style="margin-top:10px"><button class="btn alt" id="pOn">Turn on</button><button class="btn alt" id="pOff">Turn off</button></div>
+  <div class="note">Manual buttons work only in Manual mode.</div></div>
+ <div class="card"><h2>Auto settings</h2>
+  <label>Turn pump on below <span class="val" id="onV">30%</span></label><input type="range" id="onR" min="5" max="60" value="30">
+  <label>Turn pump off above <span class="val" id="offV">90%</span></label><input type="range" id="offR" min="60" max="100" value="90">
+  <button class="btn alt" id="sug">Suggest on and off levels</button><div class="note" id="sugMsg"></div><button class="btn" id="sugApply" hidden>Apply suggestion</button>
+  </div>
+ <div class="card"><h2>Fill schedule</h2>
+  <div class="row"><span>Only start the pump in this window</span><input type="checkbox" class="chk" id="schEn"></div>
+  <div class="grid"><div><label>From</label><input type="time" id="schS" value="22:00"></div><div><label>Until</label><input type="time" id="schE" value="05:00"></div></div>
+  <div class="note">Outside the window the pump stays off, unless the tank falls below half of the pump-on level.</div></div>
+ <button class="btn" id="save">Save to pump controller</button>
+ <div class="card"><h2>Connection</h2>
+  <input type="text" id="ip" placeholder="ESP32 address, e.g. 192.168.1.50">
+  <button class="btn alt" id="connect">Connect</button>
+  <button class="btn alt" id="simF">Simulate sensor fault (demo only)</button>
+  <div class="note">Leave empty to use demo data. The phone and ESP32 must be on the same Wi-Fi.</div>
+  <div class="note">Wireless firmware update: in Arduino IDE choose Tools, then Port, then the network port named pump-controller.</div></div>
+<div class="card"><h2>Remote access (Firebase)</h2>
+  <label>Database URL</label><input type="text" id="fbDb" placeholder="https://your-project-default-rtdb...firebasedatabase.app">
+  <label>Web API key</label><input type="text" id="fbKey">
+  <label>Your email</label><input type="text" inputmode="email" id="fbEmail" autocomplete="username">
+  <label>Password</label><input type="password" id="fbPass" autocomplete="current-password">
+  <button class="btn" id="fbConnect">Connect remotely</button>
+  <button class="btn alt" id="fbOut">Disconnect</button>
+  <div class="note" id="fbMsg">Works from any network. The pump controller must be online.</div></div>
+</section>
+<section id="history">
+ <div id="leak" class="warn" hidden></div>
+ <div class="card"><div class="grid">
+  <div class="stat"><b id="uT">--</b><span>liters today</span></div>
+  <div class="stat"><b id="u7">--</b><span>liters, last 7 days</span></div>
+  <div class="stat"><b id="u30">--</b><span>liters, last 30 days</span></div>
+  <div class="stat"><b id="avg">--</b><span>average liters per day</span></div></div></div>
+ <div class="card"><div class="row"><h2 style="margin:0">Water used per day (L)</h2>
+  <div class="seg"><button class="btn alt" id="r7" style="padding:6px 10px;width:auto">7 days</button><button class="btn alt" id="r30" style="padding:6px 10px;width:auto">30 days</button></div></div>
+  <svg id="useChart" viewBox="0 0 240 120" preserveAspectRatio="none" style="margin-top:12px"></svg></div>
+ <div class="card"><h2>Pump starts per day</h2><svg id="stChart" viewBox="0 0 240 120" preserveAspectRatio="none"></svg><div class="note" id="stNote"></div></div>
+ <div class="card"><h2>Pump run time per day (min)</h2><svg id="rtChart" viewBox="0 0 240 120" preserveAspectRatio="none"></svg></div>
+</section>
+<section id="calib">
+ <div class="card"><h2>Calibrate tank</h2>
+  <div class="stat"><b id="calD">--</b><span>sensor reading (cm)</span></div>
+  <div class="grid" style="margin-top:12px"><button class="btn alt" style="margin-top:0" id="calF">Tank is full now</button><button class="btn alt" style="margin-top:0" id="calE">Tank is empty now</button></div>
+  <label>Or the tank is at this level now (%)</label>
+  <div class="seg"><input type="text" inputmode="numeric" id="calP" value="50"><button class="btn alt" style="width:auto;white-space:nowrap" id="calL">Set level</button></div>
+  <div class="note" id="calMsg">Let the water settle, then tap the matching button. Set the full point first if you use the level option.</div></div>
+ <div class="card"><h2>Tank distances</h2>
+  <label>Tank empty distance <span class="val" id="emV">200 cm</span></label><input type="range" id="emR" min="50" max="400" step="0.5" value="200">
+  <label>Tank full distance <span class="val" id="fuV">20 cm</span></label><input type="range" id="fuR" min="10" max="100" step="0.5" value="20">
+  <div class="note">The buttons above set these for you. Adjust by hand only if needed.</div></div>
+ <div class="card"><h2>Tank volume</h2>
+  <label>Tank volume (liters)</label><input type="text" inputmode="numeric" id="tank" value="600">
+  <div class="note">Two tanks joined at the bottom share one water level. Enter their combined volume, or let the app learn it.</div>
+  <label>Pump flow rate, liters per minute (optional)</label><input type="text" inputmode="decimal" id="flow" value="0">
+  <div class="row" style="margin-top:12px"><span>Learn tank volume from fills</span><input type="checkbox" class="chk" id="learn" checked></div>
+  <div class="note" id="learnNote">Needs the pump flow rate or a flow sensor. Each fill of 5% or more teaches the volume. Fills while water is in use read low.</div>
+</div>
+ <button class="btn" id="save2">Save to pump controller</button>
+</section>
+</main>
+<nav class="tabs" role="tablist">
+ <button role="tab" aria-selected="true" data-t="home">Home</button>
+ <button role="tab" aria-selected="false" data-t="control">Control</button>
+ <button role="tab" aria-selected="false" data-t="history">History</button>
+ <button role="tab" aria-selected="false" data-t="calib">Calibrate</button>
+</nav>
+<script>
+const $=id=>document.getElementById(id);
+let base="",cfg={on:30,off:90,empty:200,full:20,mode:"auto",tank:600,schEn:false,schS:1320,schE:300};
+let S={pct:55,dist:100,pump:false,mode:"auto",runMin:18,fault:"",latched:false,stale:false};
+let lv=[];
+let H=[],range=7,synced=false,tickN=0,fails=0;
+const FM={no_echo:"The water level sensor is not responding. The pump has been stopped. Check the sensor wiring and that nothing blocks it.",out_of_range:"The sensor is giving a reading that is impossible for this tank. The pump has been stopped. Check the sensor position, or calibrate again.",jump:"The sensor readings are jumping around. The pump has been stopped until they settle.",no_rise:"The pump ran for 20 minutes and the water level did not rise. The pump has been stopped. Check the water source, a closed valve, a leak or the sensor, then clear the fault."};
+const m2t=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+const t2m=v=>{const a=v.split(":");return a[0]*60+ +a[1];};
+
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+ document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
+ document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id===b.dataset.t));
+});
+[["onR","onV","%"],["offR","offV","%"],["emR","emV"," cm"],["fuR","fuV"," cm"]].forEach(([r,v,u])=>{
+ $(r).oninput=()=>{$(v).textContent=$(r).value+u;};
+});
+function readCfg(){cfg.on=+$("onR").value;cfg.off=+$("offR").value;cfg.empty=+$("emR").value;cfg.full=+$("fuR").value;
+ cfg.tank=+$("tank").value||600;cfg.flow=+$("flow").value||0;cfg.learn=$("learn").checked;cfg.schEn=$("schEn").checked;cfg.schS=t2m($("schS").value);cfg.schE=t2m($("schE").value);}
+function syncUI(d){if(synced)return;synced=true;
+ const set=(id,v)=>{$(id).value=v;$(id).oninput&&$(id).oninput();};
+ set("onR",d.on_pct);set("offR",d.off_pct);set("emR",d.empty_cm);set("fuR",d.full_cm);
+ $("tank").value=d.tank;$("flow").value=d.flow_lpm;$("learn").checked=d.learn_en;$("schEn").checked=d.sch_en;$("schS").value=m2t(d.sch_s);$("schE").value=m2t(d.sch_e);readCfg();}
+function renderHist(){
+ if(!H.length)return;
+ const sum=(a,k)=>a.reduce((t,x)=>t+x[k],0),L=H.slice(-range),t=H[H.length-1],w=H.slice(-7),m=H.slice(-30);
+ const mx=k=>Math.max(1,...L.map(x=>x[k]));
+ $("uT").textContent=Math.round(t.l);$("u7").textContent=Math.round(sum(w,"l"));$("u30").textContent=Math.round(sum(m,"l"));
+ $("avg").textContent=Math.round(sum(m,"l")/m.length);
+ bars($("useChart"),L.map(x=>x.l),mx("l"),"#2a86f0");bars($("stChart"),L.map(x=>x.s),mx("s"),"#12a36b");bars($("rtChart"),L.map(x=>x.r),mx("r"),"#e08a1b");
+ const pv=H.slice(-8,-1),pa=pv.length?sum(pv,"s")/pv.length:0;
+ $("stNote").textContent="Today: "+t.s+" starts. Average of the previous days: "+pa.toFixed(1)+".";
+ const lk=$("leak");lk.hidden=!(pa>0&&t.s>=Math.max(4,pa*2));
+ lk.textContent="The pump is starting much more often than usual. Check for a leak, a failing valve or a faulty float.";
+}
+function demoHist(){H=[];for(let i=0;i<30;i++)H.push({l:350+Math.random()*250,r:50+Math.random()*40,s:3+Math.round(Math.random()*3)});H[29]={l:0,r:S.runMin,s:2};}
+async function loadHist(){if(!base)return;try{H=await (await F(base+"/api/history")).json();}catch(e){}}
+const setS=(id,v)=>{$(id).value=v;$(id).oninput&&$(id).oninput();};
+function learnUI(d){
+ if(d.learn_n>0)$("learnNote").textContent="Learned volume: "+Math.round(d.tank_learned)+" L from "+d.learn_n+" fills."+(d.learn_en&&d.learn_n>=3?" Applied automatically.":" Needs 3 fills before it is applied.");
+ if(d.learn_en&&d.learn_n>=3&&document.activeElement!==$("tank")){$("tank").value=d.tank;cfg.tank=d.tank;}}
+async function cal(point,pct){
+ const msg=$("calMsg");msg.textContent="Measuring. Keep the water still.";let d;
+ if(base){try{d=await (await F(base+"/api/calibrate?"+new URLSearchParams({point,pct:pct||0}))).json();}catch(e){msg.textContent="Can't reach the pump controller.";return;}}
+ else{d={ok:true,full_cm:cfg.full,empty_cm:cfg.empty};
+  if(point==="full")d.full_cm=S.dist;else if(point==="empty")d.empty_cm=S.dist;else{const p=pct/100;d.empty_cm=(S.dist-cfg.full*p)/(1-p);}
+  d.warn=d.full_cm<25;if(d.empty_cm-d.full_cm<10){d.ok=false;d.error="order";}}
+ if(!d.ok){msg.textContent=({no_echo:"The sensor got no echo. Check the wiring and where it points.",unstable:"Readings are jumping. Wait for the water to settle and try again.",range:"Enter a level between 5 and 90, and set the full point first.",order:"The empty mark must be at least 10 cm farther than the full mark."})[d.error]||"Calibration failed.";return;}
+ setS("fuR",Math.round(d.full_cm));setS("emR",Math.round(d.empty_cm));readCfg();
+ msg.textContent="Saved. Full is "+Math.round(d.full_cm)+" cm and empty is "+Math.round(d.empty_cm)+" cm."+(d.warn?" The full mark is closer than the sensor can measure (about 25 cm). Mount the sensor higher or accept a lower full level.":"");}
+$("save2").onclick=()=>{$("save").onclick();$("save2").textContent="Saved";setTimeout(()=>$("save2").textContent="Save to pump controller",1500);};
+$("calF").onclick=()=>cal("full");$("calE").onclick=()=>cal("empty");$("calL").onclick=()=>cal("level",+$("calP").value);
+$("clrFault").onclick=async()=>{if(base){try{await F(base+"/api/clearfault");}catch(e){}}else S.fault="";tick();};
+$("simF").onclick=()=>{if(base)return;S.fault=S.fault?"":"no_echo";S.latched=false;render();};
+const LS={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+let cloud=null;
+async function cloudAuth(url,opt,mapper){
+ const r=await fetch(url,opt),d=await r.json();
+ if(!r.ok)throw new Error((d.error&&d.error.message)||"Sign-in failed");
+ const t=mapper(d);cloud.idToken=t.id;cloud.refresh=t.ref;cloud.exp=Date.now()+(+t.ex-300)*1000;
+ LS.set("fb",JSON.stringify({db:cloud.db,key:cloud.key,email:cloud.email,refresh:cloud.refresh}));}
+const cloudSignIn=pw=>cloudAuth("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key="+cloud.key,
+ {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:cloud.email,password:pw,returnSecureToken:true})},
+ d=>({id:d.idToken,ref:d.refreshToken,ex:d.expiresIn}));
+async function cloudToken(){
+ if(Date.now()<cloud.exp)return cloud.idToken;
+ await cloudAuth("https://securetoken.googleapis.com/v1/token?key="+cloud.key,
+  {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(cloud.refresh)},
+  d=>({id:d.id_token,ref:d.refresh_token,ex:d.expires_in}));
+ return cloud.idToken;}
+async function db(method,path,body){
+ const t=await cloudToken(),r=await fetch(cloud.db+path+".json?auth="+t,{method,body:body===undefined?undefined:JSON.stringify(body)});
+ if(!r.ok)throw new Error("Database error "+r.status);return r.json();}
+const JR=v=>({json:async()=>v});
+async function F(u,o){if(!u.startsWith("cloud:"))return fetch(u,o);return cloudFetch(u.slice(6));}
+async function cloudFetch(p){
+ const parts=p.split("?"),path=parts[0],prm=Object.fromEntries(new URLSearchParams(parts[1]||""));
+ if(path==="/api/status"){const d=await db("GET","/pump/status");
+  if(!d||!d.ts||Date.now()-d.ts>60000)throw new Error("controller offline");return JR(d);}
+ if(path==="/api/history")return JR((await db("GET","/pump/history"))||[]);
+ let cmd=null;
+ if(path==="/api/set")cmd={set:prm};else if(path==="/api/clearfault")cmd={clearfault:1};else if(path==="/api/calibrate")cmd={cal:prm};
+ if(!cmd)throw new Error("unknown request");
+ cmd.t={".sv":"timestamp"};
+ const k=(await db("POST","/pump/cmds",cmd)).name;
+ if(path!=="/api/calibrate")return JR({ok:true});
+ for(let i=0;i<16;i++){await new Promise(r=>setTimeout(r,1500));const a=await db("GET","/pump/ack");if(a&&a.key===k)return JR(a.result);}
+ throw new Error("no answer from the controller");}
+function useCloud(){base="cloud:";synced=false;fails=0;S.stale=false;$("conn").textContent="Connecting…";tick();}
+$("fbConnect").onclick=async()=>{const m=$("fbMsg");m.textContent="Signing in…";
+ try{cloud={db:$("fbDb").value.trim().replace(/\/$/,""),key:$("fbKey").value.trim(),email:$("fbEmail").value.trim(),exp:0};
+  await cloudSignIn($("fbPass").value);$("fbPass").value="";
+  m.textContent="Connected. Remote access is on for this device.";useCloud();
+ }catch(e){cloud=null;m.textContent="Could not sign in: "+e.message;}};
+$("fbOut").onclick=()=>{cloud=null;LS.set("fb","");if(base==="cloud:"){base="";S.stale=false;$("conn").textContent="Demo mode";}$("fbMsg").textContent="Disconnected. Using demo data or the local address.";};
+function autoCloud(){let c=null;try{c=JSON.parse(LS.get("fb")||"null");}catch(e){}
+ if(!c||!c.refresh)return;cloud={db:c.db,key:c.key,email:c.email,refresh:c.refresh,exp:0};
+ $("fbDb").value=c.db;$("fbKey").value=c.key;$("fbEmail").value=c.email;$("fbMsg").textContent="Signed in as "+c.email+".";base="cloud:";}
+let pend=null;
+$("sug").onclick=()=>{readCfg();const w=H.slice(-8,-1).filter(x=>x.l>0),m=$("sugMsg");
+ if(w.length<3){m.textContent="Not enough usage history yet. Check again after a few days.";$("sugApply").hidden=true;return;}
+ const use=w.reduce((t,x)=>t+x.l,0)/w.length,st=H.slice(-8,-1).reduce((t,x)=>t+x.s,0)/7;
+ let on=Math.round(Math.min(50,Math.max(15,0.4*use/cfg.tank*100))),off=92;if(st>6)on=Math.max(15,on-5);
+ pend={on,off};
+ m.textContent="You use about "+Math.round(use)+" L a day. Turning on below "+on+"% keeps about "+Math.round(on/100*cfg.tank)+" L in reserve, and turning off above "+off+"% leaves room to avoid overflow."+(st>6?" The pump starts often, so the gap was widened.":"");
+ $("sugApply").hidden=false;};
+$("sugApply").onclick=()=>{setS("onR",pend.on);setS("offR",pend.off);readCfg();$("sugApply").hidden=true;$("sugMsg").textContent="Applied. Tap Save to send it to the pump controller.";};
+const EV=[];let pp=null,pf=null,ps=null,lastUp=null;
+const hhmm=()=>new Date().toTimeString().slice(0,5);
+function addEv(t){EV.unshift({t,w:hhmm()});if(EV.length>6)EV.pop();}
+function track(){
+ if(pp!==null&&S.pump!==pp)addEv(S.pump?"Pump started":"Pump stopped");
+ if(pf!==null&&S.fault!==pf)addEv(S.fault?"Fault: "+S.fault.replace("_"," "):"Fault cleared");
+ if(ps!==null&&S.stale!==ps)addEv(S.stale?"Connection lost":"Connection restored");
+ pp=S.pump;pf=S.fault;ps=S.stale;if(!S.stale)lastUp=new Date();}
+function fmtH(h){if(!isFinite(h)||h<0)return "--";if(h<1)return Math.max(1,Math.round(h*60))+" min";if(h<48)return h.toFixed(1)+" h";return Math.round(h/24)+" days";}
+function renderHome(){
+ const t=H.length?H[H.length-1]:null;
+ if(t){$("hL").textContent=Math.round(t.l);$("hR").textContent=Math.round(t.r);$("hS").textContent=t.s;}
+ const man=S.mode==="manual";
+ ["hAuto","mAuto"].forEach(i=>$(i).classList.toggle("alt",man));["hMan","mMan"].forEach(i=>$(i).classList.toggle("alt",!man));
+ $("hOn").disabled=$("hOff").disabled=!man||!!S.fault||!!S.stale;
+ $("hNote").textContent=man?"":"Switch to Manual to start or stop the pump yourself.";
+ const liters=S.pct/100*cfg.tank,res=Math.max(0,(S.pct-cfg.on)/100*cfg.tank);
+ $("fcLeft").textContent=Math.round(liters);$("fcRes").textContent=Math.round(res);
+ const w=H.slice(-8,-1).filter(x=>x.l>0),per=w.length>=3?w.reduce((a,x)=>a+x.l,0)/w.length/24:0;
+ let main="--",sub="Needs a few days of usage history";
+ if(S.fault||S.stale){sub="Unavailable during a fault or lost connection";}
+ else if(S.pump){const n=lv.length,r=n>7?(lv[n-1]-lv[n-7])/0.5:0;
+  if(r>0.05){main=fmtH(Math.max(0,cfg.off-S.pct)/r/60);sub="until the pump reaches the off level";}else{main="Filling";sub="Fill rate not known yet";}}
+ else if(per>0){main=fmtH(res/per);sub="until the pump starts, at your usual use";}
+ $("fcMain").textContent=main;$("fcSub").textContent=sub;
+ $("sysC").textContent=S.stale?"No connection":base?"Connected":"Demo mode";
+ $("sysS").textContent=S.fault==="no_rise"?"OK, pump fault":S.fault?"Fault":"OK";
+ let sw="Off";
+ if(cfg.schEn){const d=new Date(),m=d.getHours()*60+d.getMinutes(),open=cfg.schS<=cfg.schE?(m>=cfg.schS&&m<cfg.schE):(m>=cfg.schS||m<cfg.schE);
+  sw=m2t(cfg.schS)+" to "+m2t(cfg.schE)+(open?", open now":", closed now");}
+ $("sysW").textContent=sw;
+ $("sysU").textContent=lastUp?lastUp.toTimeString().slice(0,8):"--";
+ $("evList").innerHTML=EV.length?EV.map(e=>'<div class="ev"><span>'+e.t+'</span><span>'+e.w+'</span></div>').join(""):'<div class="note">No events yet.</div>';
+}
+$("hAuto").onclick=()=>$("mAuto").onclick();$("hMan").onclick=()=>$("mMan").onclick();
+$("hOn").onclick=()=>$("pOn").onclick();$("hOff").onclick=()=>$("pOff").onclick();
+$("r7").onclick=()=>{range=7;renderHist();};$("r30").onclick=()=>{range=30;renderHist();};
+function bars(el,arr,max,color){
+ const w=240/Math.max(arr.length,1);el.innerHTML=arr.map((v,i)=>{const h=Math.max(1,v/max*110);
+  return `<rect x="${i*w+1}" y="${118-h}" width="${w-2}" height="${h}" rx="2" fill="${color}"/>`}).join("");}
+function render(){
+ const p=Math.round(S.pct);
+ const bad=!!(S.fault||S.stale);
+ $("pct").textContent=bad?"--":p;$("liters").textContent=bad?"-- liters":Math.round(S.pct/100*cfg.tank)+" liters";
+ $("dist").textContent="Distance to water "+S.dist.toFixed(0)+" cm";$("calD").textContent=S.dist.toFixed(1);
+ const Y=v=>180-v/100*150;
+ $("lvl").style.transform=`translateY(${Y(S.pct)}px)`;
+ $("mOn").style.transform=`translateY(${Y(cfg.on)}px)`;$("mOff").style.transform=`translateY(${Y(cfg.off)}px)`;
+ $("tankViz").classList.toggle("pumping",S.pump&&!bad);$("tankViz").classList.toggle("bad",bad);
+ const fm=S.fault?(FM[S.fault]||"Sensor fault. The pump has been stopped."):S.stale?"Lost connection to the pump controller. The data shown is old. The controller keeps running the pump automatically on its own.":"";
+ $("fault").hidden=!fm;$("faultMsg").textContent=fm;$("clrFault").hidden=!(S.fault&&S.latched);
+ const low=p<cfg.on;$("status").textContent=S.fault?"Pump stopped: fault":S.stale?"No connection":S.pump?"Pump running":(low?"Low level":"Normal level");
+ $("sdot").style.background=bad?"#ff5a5a":S.pump?"#9fd2ff":(low?"var(--warn)":"var(--ok)");
+ $("pstate").textContent=S.pump?"Running":"Stopped";$("pmode").textContent=S.mode==="auto"?"Automatic mode":"Manual mode";
+ bars($("lvlChart"),lv,100,"#2a86f0");renderHist();renderHome();
+}
+function push(){lv.push(S.pct);if(lv.length>24){lv.shift();}}
+async function tick(){
+ if(base){
+  try{const r=await F(base+"/api/status");const d=await r.json();
+   S={pct:d.level_pct,dist:d.distance_cm,pump:d.pump,mode:d.mode,runMin:d.run_min,fault:d.fault||"",latched:!!d.fault_latched,stale:false};fails=0;
+   syncUI(d);learnUI(d);cfg.on=d.on_pct;cfg.off=d.off_pct;if(tickN++%12===0)await loadHist();$("conn").textContent="Connected";
+  }catch(e){$("conn").textContent="Can't reach pump";if(++fails>=2)S.stale=true;}
+ }else{ // demo simulation
+  const was=S.pump;if(S.mode==="auto"){if(S.pct<cfg.on)S.pump=true;if(S.pct>=cfg.off)S.pump=false;}if(S.fault)S.pump=false;
+  S.pct+=S.pump?2.5:-0.7;S.pct=Math.min(100,Math.max(0,S.pct));
+  S.dist=cfg.full+(cfg.empty-cfg.full)*(1-S.pct/100);
+  if(S.pump)S.runMin+=5/60;
+  const td=H[H.length-1];if(td){if(S.pump&&!was)td.s++;if(!S.pump)td.l+=0.7/100*cfg.tank;td.r=S.runMin;}
+ }
+ push();track();render();
+}
+async function send(q){
+ if(!base){return;}
+ try{await F(base+"/api/set?"+new URLSearchParams(q));}catch(e){$("conn").textContent="Save failed";}
+}
+$("save").onclick=()=>{readCfg();S.mode==="auto"; send({on:cfg.on,off:cfg.off,empty:cfg.empty,full:cfg.full,tank:cfg.tank,flow:cfg.flow,learn:cfg.learn?1:0,sch_en:cfg.schEn?1:0,sch_s:cfg.schS,sch_e:cfg.schE});$("save").textContent="Saved";setTimeout(()=>$("save").textContent="Save to pump controller",1500);render();};
+$("mAuto").onclick=()=>{S.mode="auto";send({mode:"auto"});render();};
+$("mMan").onclick=()=>{S.mode="manual";send({mode:"manual"});render();};
+$("pOn").onclick=()=>{if(S.mode==="manual"&&!S.fault){S.pump=true;send({pump:1});render();}};
+$("pOff").onclick=()=>{if(S.mode==="manual"){S.pump=false;send({pump:0});render();}};
+$("connect").onclick=()=>{const v=$("ip").value.trim();base=v?"http://"+v.replace(/^https?:\/\//,""):"";$("conn").textContent=base?"Connecting…":"Demo mode";};
+demoHist();
+for(let i=0;i<24;i++){S.pct+=(Math.random()-.4)*3;push();}
+autoCloud();tick();setInterval(tick,5000);
+</script></body></html>
