@@ -39,6 +39,7 @@ h2{font-size:15px;margin:0 0 10px;font-weight:600}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat b{font-size:26px;font-weight:600}.stat span{color:var(--mute);font-size:13px;display:block}
 svg{width:100%;height:120px;display:block}
+svg.ch{height:auto}
 .tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom,0px)}
 .tabs button{flex:1;border:0;background:none;color:var(--mute);padding:12px 0 10px;font:inherit;font-size:13px;cursor:pointer}
 .tabs button[aria-selected=true]{color:var(--blue);font-weight:600}
@@ -115,7 +116,7 @@ details.card>summary{cursor:pointer;font-weight:600;font-size:15px}
   <div class="grid" style="margin-top:14px">
   <div class="stat"><b id="fcLeft">--</b><span>liters in the tank</span></div>
   <div class="stat"><b id="fcRes">--</b><span>liters before pump starts</span></div></div></div>
- <div class="card"><h2>Water level, last 24 samples</h2><svg id="lvlChart" viewBox="0 0 240 120" preserveAspectRatio="none"></svg></div>
+ <div class="card"><h2>Water level, last 24 samples</h2><svg id="lvlChart" class="ch" viewBox="0 0 320 170"></svg></div>
  <div class="card"><h2>System</h2>
   <div class="kv"><span>Controller</span><b id="sysC">--</b></div>
   <div class="kv"><span>Level sensor</span><b id="sysS">--</b></div>
@@ -140,8 +141,8 @@ details.card>summary{cursor:pointer;font-weight:600;font-size:15px}
   <div class="note">Outside the window the pump stays off, unless the tank falls below half of the pump-on level.</div></div>
  <button class="btn" id="save">Save to pump controller</button>
 <div class="card"><h2>Remote access (Firebase)</h2>
-  <label>Database URL</label><input type="text" id="fbDb" placeholder="https://your-project-default-rtdb...firebasedatabase.app">
-  <label>Web API key</label><input type="text" id="fbKey">
+  <div id="fbCfg"><label>Database URL (needed only once)</label><input type="text" id="fbDb" placeholder="https://your-project-default-rtdb...firebasedatabase.app">
+  <label>Web API key (needed only once)</label><input type="text" id="fbKey"></div>
   <label>Your email</label><input type="text" inputmode="email" id="fbEmail" autocomplete="username">
   <label>Password</label><input type="password" id="fbPass" autocomplete="current-password">
   <button class="btn" id="fbConnect">Connect remotely</button>
@@ -174,9 +175,9 @@ details.card>summary{cursor:pointer;font-weight:600;font-size:15px}
   <div class="stat"><b id="avg">--</b><span>average liters per day</span></div></div></div>
  <div class="card"><div class="row"><h2 style="margin:0">Water used per day (L)</h2>
   <div class="seg"><button class="btn alt" id="r7" style="padding:6px 10px;width:auto">7 days</button><button class="btn alt" id="r30" style="padding:6px 10px;width:auto">30 days</button></div></div>
-  <svg id="useChart" viewBox="0 0 240 120" preserveAspectRatio="none" style="margin-top:12px"></svg></div>
- <div class="card"><h2>Pump starts per day</h2><svg id="stChart" viewBox="0 0 240 120" preserveAspectRatio="none"></svg><div class="note" id="stNote"></div></div>
- <div class="card"><h2>Pump run time per day (min)</h2><svg id="rtChart" viewBox="0 0 240 120" preserveAspectRatio="none"></svg></div>
+  <svg id="useChart" class="ch" viewBox="0 0 320 170" style="margin-top:12px"></svg></div>
+ <div class="card"><h2>Pump starts per day</h2><svg id="stChart" class="ch" viewBox="0 0 320 170"></svg><div class="note" id="stNote"></div></div>
+ <div class="card"><h2>Pump run time per day (min)</h2><svg id="rtChart" class="ch" viewBox="0 0 320 170"></svg></div>
 </section>
 <section id="calib">
  <div class="card"><h2>Calibrate tank</h2>
@@ -229,19 +230,23 @@ function syncUI(d){if(synced)return;synced=true;
  set("onR",d.on_pct);set("offR",d.off_pct);set("emR",d.empty_cm);set("fuR",d.full_cm);
  $("tank").value=d.tank;$("flow").value=d.flow_lpm;$("learn").checked=d.learn_en;$("schEn").checked=d.sch_en;$("schS").value=m2t(d.sch_s);$("schE").value=m2t(d.sch_e);readCfg();}
 function renderHist(){
- if(!H.length)return;
+ if(!H.length){["useChart","stChart","rtChart"].forEach(i=>bars($(i),[]));return;}
  const sum=(a,k)=>a.reduce((t,x)=>t+x[k],0),L=H.slice(-range),t=H[H.length-1],w=H.slice(-7),m=H.slice(-30);
  const mx=k=>Math.max(1,...L.map(x=>x[k]));
  $("uT").textContent=Math.round(t.l);$("u7").textContent=Math.round(sum(w,"l"));$("u30").textContent=Math.round(sum(m,"l"));
  $("avg").textContent=Math.round(sum(m,"l")/m.length);
- bars($("useChart"),L.map(x=>x.l),mx("l"),"#2a86f0");bars($("stChart"),L.map(x=>x.s),mx("s"),"#12a36b");bars($("rtChart"),L.map(x=>x.r),mx("r"),"#e08a1b");
+ const lb=L.map((x,i)=>{const d=new Date();d.setDate(d.getDate()-(L.length-1-i));return i===L.length-1?"Today":L.length<=7?d.toLocaleDateString(undefined,{weekday:"short"}):String(d.getDate());});
+ bars($("useChart"),L.map(x=>x.l),mx("l"),"#2a86f0",lb,{emptyMsg:"No water use recorded yet"});
+ bars($("stChart"),L.map(x=>x.s),mx("s"),"#12a36b",lb,{emptyMsg:"No pump starts recorded yet"});
+ bars($("rtChart"),L.map(x=>x.r),mx("r"),"#e08a1b",lb,{emptyMsg:"No pump run time recorded yet"});
  const pv=H.slice(-8,-1),pa=pv.length?sum(pv,"s")/pv.length:0;
  $("stNote").textContent="Today: "+t.s+" starts. Average of the previous days: "+pa.toFixed(1)+".";
  const lk=$("leak");lk.hidden=!(pa>0&&t.s>=Math.max(4,pa*2));
  lk.textContent="The pump is starting much more often than usual. Check for a leak, a failing valve or a faulty float.";
 }
 function demoHist(){H=[];for(let i=0;i<30;i++)H.push({l:350+Math.random()*250,r:50+Math.random()*40,s:3+Math.round(Math.random()*3)});H[29]={l:0,r:S.runMin,s:2};}
-async function loadHist(){if(!base)return;try{H=await (await F(base+"/api/history")).json();}catch(e){}}
+const toArr=v=>Array.isArray(v)?v.filter(Boolean):(v&&typeof v==="object"?Object.keys(v).sort((a,b)=>a-b).map(k=>v[k]).filter(Boolean):[]);
+async function loadHist(){if(!base)return;try{H=toArr(await (await F(base+"/api/history")).json()).map(x=>({l:+x.l||0,r:+x.r||0,s:+x.s||0}));}catch(e){}}
 const setS=(id,v)=>{$(id).value=v;$(id).oninput&&$(id).oninput();};
 function learnUI(d){
  if(d.learn_n>0)$("learnNote").textContent="Learned volume: "+Math.round(d.tank_learned)+" L from "+d.learn_n+" fills."+(d.learn_en&&d.learn_n>=3?" Applied automatically.":" Needs 3 fills before it is applied.");
@@ -260,6 +265,9 @@ $("calF").onclick=()=>cal("full");$("calE").onclick=()=>cal("empty");$("calL").o
 $("clrFault").onclick=async()=>{if(base){try{await F(base+"/api/clearfault");}catch(e){}}else S.fault="";tick();};
 $("simF").onclick=()=>{if(base)return;S.fault=S.fault?"":"no_echo";S.latched=false;render();};
 const LS={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const FB_DEFAULT={db:"",key:""}; // optional: paste your Firebase database URL and web API key here to hide those fields
+const FB=(()=>{let c={db:FB_DEFAULT.db,key:FB_DEFAULT.key};if(!c.db||!c.key){try{const s=JSON.parse(localStorage.getItem("fbcfg")||"null");if(s&&s.db&&s.key)c={db:s.db,key:s.key};}catch(e){}}return c;})();
+function hideCfg(){$("fbCfg").hidden=!!(FB.db&&FB.key);}
 let cloud=null;
 async function cloudAuth(url,opt,mapper){
  const r=await fetch(url,opt),d=await r.json();
@@ -295,13 +303,16 @@ async function cloudFetch(p){
  throw new Error("no answer from the controller");}
 function useCloud(){base="cloud:";synced=false;fails=0;S.stale=false;$("conn").textContent="Connecting…";tick();}
 $("fbConnect").onclick=async()=>{const m=$("fbMsg");m.textContent="Signing in…";
- try{cloud={db:$("fbDb").value.trim().replace(/\/$/,""),key:$("fbKey").value.trim(),email:$("fbEmail").value.trim(),exp:0};
+ try{const db0=(FB.db||$("fbDb").value).trim().replace(/\/$/,""),key0=(FB.key||$("fbKey").value).trim();
+  if(!db0||!key0){m.textContent="Enter the database URL and API key once. After that only email and password are needed.";return;}
+  cloud={db:db0,key:key0,email:$("fbEmail").value.trim(),exp:0};
   await cloudSignIn($("fbPass").value);$("fbPass").value="";
+  FB.db=db0;FB.key=key0;LS.set("fbcfg",JSON.stringify(FB));hideCfg();
   m.textContent="Connected. Remote access is on for this device.";useCloud();
  }catch(e){cloud=null;m.textContent="Could not sign in: "+e.message;}};
 $("fbOut").onclick=()=>{cloud=null;LS.set("fb","");if(base==="cloud:"){base="";S.stale=false;$("conn").textContent="Demo mode";}$("fbMsg").textContent="Disconnected. Using demo data or the local address.";};
 function autoCloud(){let c=null;try{c=JSON.parse(LS.get("fb")||"null");}catch(e){}
- if(!c||!c.refresh)return;cloud={db:c.db,key:c.key,email:c.email,refresh:c.refresh,exp:0};
+ if(!c||!c.refresh)return;if(!FB.db||!FB.key){FB.db=c.db;FB.key=c.key;}cloud={db:c.db,key:c.key,email:c.email,refresh:c.refresh,exp:0};
  $("fbDb").value=c.db;$("fbKey").value=c.key;$("fbEmail").value=c.email;$("fbMsg").textContent="Signed in as "+c.email+".";base="cloud:";}
 const MM={reset_history:"History cleared.",reset_learning:"Learned tank volume cleared.",reset_settings:"Settings reset to defaults.",restart:"Restarting the controller. It will be back in about 30 seconds.",clear_fault:"Fault cleared."};
 function demoMaint(a){
@@ -376,9 +387,22 @@ function renderHome(){
 $("hAuto").onclick=()=>$("mAuto").onclick();$("hMan").onclick=()=>$("mMan").onclick();
 $("hOn").onclick=()=>$("pOn").onclick();$("hOff").onclick=()=>$("pOff").onclick();
 $("r7").onclick=()=>{range=7;renderHist();};$("r30").onclick=()=>{range=30;renderHist();};
-function bars(el,arr,max,color){
- const w=240/Math.max(arr.length,1);el.innerHTML=arr.map((v,i)=>{const h=Math.max(1,v/max*110);
-  return `<rect x="${i*w+1}" y="${118-h}" width="${w-2}" height="${h}" rx="2" fill="${color}"/>`}).join("");}
+function bars(el,arr,max,color,lab,o){
+ o=o||{};const W=320,HH=170,L=32,R=8,T=16,B=22,pw=W-L-R,ph=HH-T-B,n=arr.length;
+ if(!n){el.innerHTML='<text x="160" y="85" text-anchor="middle" font-size="12" fill="var(--mute)">No data yet</text>';return;}
+ const nice=v=>{if(v<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(v))),f=v/p;return(f<=1?1:f<=2?2:f<=5?5:10)*p;};
+ const top=o.fixed||nice(max),fv=v=>Number.isInteger(v)||Math.abs(v)>=10?String(Math.round(v)):v.toFixed(1);
+ const Y=v=>T+ph-Math.min(v,top)/top*ph,bw=pw/n,w=Math.max(2,bw*.7),mi=arr.indexOf(Math.max(...arr));
+ let s="";
+ [0,.5,1].forEach(g=>{const v=top*g,y=Y(v);s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L-4}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--mute)">${fv(v)}${o.unit||""}</text>`;});
+ arr.forEach((v,i)=>{const x=L+i*bw+(bw-w)/2,h=Math.max(v>0?1.5:0,T+ph-Y(v)),cx=x+w/2;
+  s+=`<rect x="${x}" y="${T+ph-h}" width="${w}" height="${h}" rx="2" fill="${color}"/>`;
+  if((n<=10||i===n-1||i===mi)&&(v>0||n<=10))s+=`<text x="${cx}" y="${T+ph-h-3}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--ink)">${fv(v)}</text>`;
+  const t=lab&&lab[i];
+  if(t&&(o.all||n<=10||(n-1-i)%5===0)){const e=cx>W-22;s+=`<text x="${e?W-2:cx}" y="${HH-6}" text-anchor="${e?"end":"middle"}" font-size="9" fill="var(--mute)">${t}</text>`;}});
+ (o.lines||[]).forEach(l=>{const y=Y(l.v);s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="${l.c}" stroke-width="1.2" stroke-dasharray="4 3"/><text x="${W-R}" y="${y-2}" text-anchor="end" font-size="9" fill="${l.c}">${l.t}</text>`;});
+ if(o.emptyMsg&&arr.every(v=>!v))s+=`<text x="${L+pw/2}" y="${T+ph/2}" text-anchor="middle" font-size="11" fill="var(--mute)">${o.emptyMsg}</text>`;
+ el.innerHTML=s;}
 function render(){
  const p=Math.round(S.pct);
  const bad=!!(S.fault||S.stale);
@@ -390,17 +414,20 @@ function render(){
  $("tankViz").classList.toggle("pumping",S.pump&&!bad);$("tankViz").classList.toggle("bad",bad);
  const fm=S.fault?(FM[S.fault]||"Sensor fault. The pump has been stopped."):S.stale?"Lost connection to the pump controller. The data shown is old. The controller keeps running the pump automatically on its own.":"";
  $("fault").hidden=!fm;$("faultMsg").textContent=fm;$("clrFault").hidden=!(S.fault&&S.latched);
- const low=p<cfg.on;$("status").textContent=S.fault?"Pump stopped: fault":S.stale?"No connection":S.pump?"Pump running":(low?"Low level":"Normal level");
- $("sdot").style.background=bad?"#ff5a5a":S.pump?"#9fd2ff":(low?"var(--warn)":"var(--ok)");
+ const lowT=Math.max(cfg.on,30),highT=Math.min(cfg.off,90);
+ const lvl=p<=10?"Very low level":p<lowT?"Low level":p>=95?"Tank full":p>=highT?"High level":"Normal level";
+ const lc=p<=10?"#ff5a5a":p<lowT?"var(--warn)":p>=highT?"#9fd2ff":"var(--ok)";
+ $("status").textContent=S.fault?"Pump stopped: fault":S.stale?"No connection":lvl+(S.pump?" · pump running":"");
+ $("sdot").style.background=bad?"#ff5a5a":lc;
  $("pstate").textContent=S.pump?"Running":"Stopped";$("pmode").textContent=S.mode==="auto"?"Automatic mode":"Manual mode";
- bars($("lvlChart"),lv,100,"#2a86f0");renderHist();renderHome();
+ bars($("lvlChart"),lv,100,"#2a86f0",lv.map((_,i)=>i===0?"earlier":i===lv.length-1?"now":""),{fixed:100,unit:"%",all:true,lines:[{v:cfg.on,c:"#e08a1b",t:"On "+cfg.on+"%"},{v:cfg.off,c:"#12a36b",t:"Off "+cfg.off+"%"}]});renderHist();renderHome();
 }
 function push(){lv.push(S.pct);if(lv.length>24){lv.shift();}}
 async function tick(){
  if(base){
   try{const r=await F(base+"/api/status");const d=await r.json();
    S={pct:d.level_pct,dist:d.distance_cm,pump:d.pump,mode:d.mode,runMin:d.run_min,fault:d.fault||"",latched:!!d.fault_latched,stale:false};fails=0;
-   syncUI(d);learnUI(d);cfg.on=d.on_pct;cfg.off=d.off_pct;if(tickN++%12===0)await loadHist();$("conn").textContent="Connected";
+   syncUI(d);learnUI(d);cfg.on=+d.on_pct||cfg.on;cfg.off=+d.off_pct||cfg.off;if(tickN++%12===0)await loadHist();$("conn").textContent="Connected";
   }catch(e){$("conn").textContent="Can't reach pump";if(++fails>=2)S.stale=true;}
  }else{ // demo simulation
   const was=S.pump;if(S.mode==="auto"){if(S.pct<cfg.on)S.pump=true;if(S.pct>=cfg.off)S.pump=false;}if(S.fault)S.pump=false;
@@ -423,5 +450,5 @@ $("pOff").onclick=()=>{if(S.mode==="manual"){S.pump=false;send({pump:0});render(
 $("connect").onclick=()=>{const v=$("ip").value.trim();base=v?"http://"+v.replace(/^https?:\/\//,""):"";$("conn").textContent=base?"Connecting…":"Demo mode";};
 demoHist();
 for(let i=0;i<24;i++){S.pct+=(Math.random()-.4)*3;push();}
-autoCloud();tick();setInterval(tick,5000);
+autoCloud();hideCfg();tick();setInterval(tick,5000);
 </script></body></html>
