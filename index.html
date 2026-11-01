@@ -325,7 +325,7 @@ async function cal(point,pct){
  if(!d.ok){msg.textContent=({no_echo:"The sensor got no echo. Check the wiring and where it points.",unstable:"Readings are jumping. Wait for the water to settle and try again.",range:"Enter a level between 5 and 90, and set the full point first.",order:"The empty mark must be at least 10 cm farther than the full mark."})[d.error]||"Calibration failed.";return;}
  setS("fuR",Math.round(d.full_cm));setS("emR",Math.round(d.empty_cm));readCfg();
  msg.textContent="Saved. Full is "+Math.round(d.full_cm)+" cm and empty is "+Math.round(d.empty_cm)+" cm."+(d.warn?" The full mark is closer than the sensor can measure (about 25 cm). Mount the sensor higher or accept a lower full level.":"");}
-$("save2").onclick=()=>{$("save").onclick();$("save2").textContent="Saved";setTimeout(()=>$("save2").textContent="Save to pump controller",1500);};
+$("save2").onclick=()=>{$("save").onclick();};
 $("calF").onclick=()=>cal("full");$("calE").onclick=()=>cal("empty");$("calL").onclick=()=>cal("level",+$("calP").value);
 $("clrFault").onclick=async()=>{if(base){try{await F(base+"/api/clearfault");}catch(e){}}else S.fault="";tick();};
 $("simF").onclick=()=>{if(base)return;S.fault=S.fault?"":"no_echo";S.latched=false;render();};
@@ -503,12 +503,23 @@ function render(){
  bars($("lvlChart"),lv,100,"#2a86f0",lv.map((_,i)=>i===0?"earlier":i===lv.length-1?"now":""),{fixed:100,unit:"%",all:true,lines:[{v:cfg.on,c:"#e08a1b",t:"On "+cfg.on+"%"},{v:cfg.off,c:"#12a36b",t:"Off "+cfg.off+"%"}]});renderHist();renderHome();
 }
 function push(){lv.push(S.pct);if(lv.length>24){lv.shift();}}
-async function tick(){
+function beat(){if(base==="cloud:"&&cloud&&!document.hidden){db("PUT","/pump/cmds/_hb",{t:{".sv":"timestamp"}}).catch(()=>{});}}   // tells the controller the app is open, so it listens every second
+let hold_={},fastUntil=0,lastTick=0,saveChk=null,saveTimer=0,ticking=false;
+const holdFor=20000;
+function hold(k,v){if(!base)return;hold_[k]={v:v,t:Date.now()+holdFor};fastUntil=Date.now()+holdFor;}   // keep what you chose on screen until the controller reports it
+function held(k,dv){const p=hold_[k];if(!p)return dv;if(String(dv)===String(p.v)||Date.now()>p.t){delete hold_[k];return dv;}return p.v;}
+function saveText(t,ms){["save","save2"].forEach(i=>$(i).textContent=t);clearTimeout(saveTimer);if(ms)saveTimer=setTimeout(()=>saveText("Save to pump controller"),ms);}
+function checkSave(d){if(!saveChk)return;const c=saveChk.c;
+ const ok=+d.on_pct===c.on&&+d.off_pct===c.off&&Math.abs(+d.empty_cm-c.empty)<0.6&&Math.abs(+d.full_cm-c.full)<0.6&&(c.learn||+d.tank===c.tank)&&!!d.sch_en===!!c.schEn&&+d.sch_s===c.schS&&+d.sch_e===c.schE;
+ if(ok){saveChk=null;saveText("Saved to controller ✓",2500);}
+ else if(Date.now()>saveChk.t){saveChk=null;saveText("Not confirmed yet",4000);$("conn").textContent="Controller has not confirmed the save";}}
+async function tick(){if(ticking)return;ticking=true;try{await tick0();}finally{ticking=false;}}
+async function tick0(){
  if(base){
   try{const r=await F(base+"/api/status");const d=await r.json();
-   S={pct:d.level_pct,dist:d.distance_cm,pump:d.pump,mode:d.mode,runMin:d.run_min,fault:d.fault||"",latched:!!d.fault_latched,stale:false};fails=0;
-   syncUI(d);learnUI(d);cfg.on=+d.on_pct||cfg.on;cfg.off=+d.off_pct||cfg.off;const due=tickN++%12===0;if(needHist||due)loadHist();$("conn").textContent="Connected";
-  }catch(e){$("conn").textContent="Can't reach pump";needHist=true;histNote();if(++fails>=2)S.stale=true;}
+   S={pct:d.level_pct,dist:d.distance_cm,pump:held("pump",d.pump),mode:held("mode",d.mode),runMin:d.run_min,fault:d.fault||"",latched:!!d.fault_latched,stale:false};fails=0;
+   syncUI(d);learnUI(d);cfg.on=held("on",+d.on_pct||cfg.on);cfg.off=held("off",+d.off_pct||cfg.off);checkSave(d);const due=tickN++%12===0;if(needHist||due)loadHist();$("conn").textContent="Connected";
+  }catch(e){$("conn").textContent="Can't reach pump";needHist=true;histNote();if(++fails>=(Date.now()<fastUntil?6:2))S.stale=true;}
  }else{ // demo simulation
   const was=S.pump;if(S.mode==="auto"){if(S.pct<cfg.on)S.pump=true;if(S.pct>=cfg.off)S.pump=false;}if(S.fault)S.pump=false;
   S.pct+=S.pump?2.5:-0.7;S.pct=Math.min(100,Math.max(0,S.pct));
@@ -520,19 +531,26 @@ async function tick(){
 }
 async function send(q){
  if(!base){return;}
- try{await F(base+"/api/set?"+new URLSearchParams(q));}catch(e){$("conn").textContent="Save failed";}
+ fastUntil=Date.now()+holdFor;beat();                                       // check the controller every second for a while
+ try{await F(base+"/api/set?"+new URLSearchParams(q));}catch(e){$("conn").textContent="Send failed";hold_={};saveChk=null;saveText("Send failed",3000);}
 }
-$("save").onclick=()=>{readCfg();S.mode==="auto"; send({on:cfg.on,off:cfg.off,empty:cfg.empty,full:cfg.full,tank:cfg.tank,flow:cfg.flow,learn:cfg.learn?1:0,sch_en:cfg.schEn?1:0,sch_s:cfg.schS,sch_e:cfg.schE});$("save").textContent="Saved";setTimeout(()=>$("save").textContent="Save to pump controller",1500);render();};
-$("mAuto").onclick=()=>{S.mode="auto";send({mode:"auto"});render();};
-$("mMan").onclick=()=>{S.mode="manual";send({mode:"manual"});render();};
-$("pOn").onclick=()=>{if(S.mode==="manual"&&!S.fault){S.pump=true;send({pump:1});render();}};
-$("pOff").onclick=()=>{if(S.mode==="manual"){S.pump=false;send({pump:0});render();}};
+$("save").onclick=()=>{readCfg();hold("on",cfg.on);hold("off",cfg.off);
+ send({on:cfg.on,off:cfg.off,empty:cfg.empty,full:cfg.full,tank:cfg.tank,flow:cfg.flow,learn:cfg.learn?1:0,sch_en:cfg.schEn?1:0,sch_s:cfg.schS,sch_e:cfg.schE});
+ if(base){saveChk={c:{on:cfg.on,off:cfg.off,empty:cfg.empty,full:cfg.full,tank:cfg.tank,learn:cfg.learn,schEn:cfg.schEn,schS:cfg.schS,schE:cfg.schE},t:Date.now()+25000};saveText("Sending…");}
+ else saveText("Saved ✓",1500);
+ render();};
+$("mAuto").onclick=()=>{S.mode="auto";S.pump=false;hold("mode","auto");hold("pump",false);send({mode:"auto"});render();};
+$("mMan").onclick=()=>{S.mode="manual";S.pump=false;hold("mode","manual");hold("pump",false);send({mode:"manual"});render();};
+$("pOn").onclick=()=>{if(S.mode==="manual"&&!S.fault){S.pump=true;hold("pump",true);send({pump:1});render();}};
+$("pOff").onclick=()=>{if(S.mode==="manual"){S.pump=false;hold("pump",false);send({pump:0});render();}};
 $("connect").onclick=()=>{const v=$("ip").value.trim();base=v?"http://"+v.replace(/^https?:\/\//,""):"";needHist=!!base;$("conn").textContent=base?"Connecting…":"Demo mode";};
 demoHist();
 for(let i=0;i<24;i++){S.pct+=(Math.random()-.4)*3;push();}
 autoCloud();hideCfg();
 if(base){H=[];try{const c=JSON.parse(LS.get("hcache")||"null");if(c&&c.H&&c.H.length){H=c.H;histAt=new Date(c.t);}}catch(e){}needHist=true;}
-histNote();tick();setInterval(tick,5000);
+histNote();lastTick=Date.now();tick();
+setInterval(beat,20000);beat();
+setInterval(()=>{if(document.hidden)return;if(Date.now()-lastTick>=(Date.now()<fastUntil?1000:5000)){lastTick=Date.now();tick();}},500);   // every 5 s, every 1 s right after you send something
 addEventListener("online",()=>{needHist=true;tick();});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){needHist=true;tick();}});
 $("histRefresh").onclick=()=>{$("histNote").textContent="Refreshing...";loadHist();};
