@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "Pump Monitor",
+  "short_name": "Pump Monitor",
+  "description": "Water tank level and pump control",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#07121f",
+  "theme_color": "#0b4fb3",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
