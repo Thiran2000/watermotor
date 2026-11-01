@@ -215,6 +215,7 @@ section.on>*:nth-child(9){animation-delay:0.40s}
 </section>
 <section id="history">
  <div id="leak" class="warn" hidden></div>
+ <div class="row" style="margin-bottom:12px"><div class="note" id="histNote" style="margin:0"></div><button class="btn alt" id="histRefresh" style="width:auto;padding:6px 12px;margin:0">Refresh</button></div>
  <div class="card"><div class="grid">
   <div class="stat"><b id="uT">--</b><span>liters today</span></div>
   <div class="stat"><b id="u7">--</b><span>liters, last 7 days</span></div>
@@ -269,6 +270,7 @@ tabBtns.forEach((b,i)=>b.onclick=()=>{
  tabBtns.forEach(x=>x.setAttribute("aria-selected",x===b));
  $("ind").style.transform="translateX("+i*100+"%)";
  document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id===b.dataset.t));
+ if(b.dataset.t==="history"&&base)loadHist();
  if(b.dataset.t==="history"){["useChart","stChart","rtChart"].forEach(id=>{$(id)._sig=null;$(id)._drawn=false;});renderHist();}
  window.scrollTo({top:0,behavior:"smooth"});
 });
@@ -298,7 +300,18 @@ function renderHist(){
 }
 function demoHist(){H=[];for(let i=0;i<30;i++)H.push({l:350+Math.random()*250,r:50+Math.random()*40,s:3+Math.round(Math.random()*3)});H[29]={l:0,r:S.runMin,s:2};}
 const toArr=v=>Array.isArray(v)?v.filter(Boolean):(v&&typeof v==="object"?Object.keys(v).sort((a,b)=>a-b).map(k=>v[k]).filter(Boolean):[]);
-async function loadHist(){if(!base)return;try{H=toArr(await (await F(base+"/api/history")).json()).map(x=>({l:+x.l||0,r:+x.r||0,s:+x.s||0}));}catch(e){}}
+let needHist=false,histAt=null,histBusy=false;
+function histNote(){const n=$("histNote");if(!n)return;
+ const t=histAt?histAt.toTimeString().slice(0,5):"";
+ if(!base){n.textContent="Demo data";return;}
+ n.textContent=needHist?(H.length?"Can't reach the controller. Showing saved history"+(t?" from "+t:"")+".":"History not loaded yet. Retrying..."):(t?"History updated "+t:"");}
+async function loadHist(){if(!base||histBusy)return false;histBusy=true;
+ try{const a=toArr(await (await F(base+"/api/history")).json()).map(x=>({l:+x.l||0,r:+x.r||0,s:+x.s||0}));
+  if(!a.length)throw new Error("empty");
+  H=a;histAt=new Date();needHist=false;LS.set("hcache",JSON.stringify({t:Date.now(),H:a}));
+  histNote();renderHist();renderHome();return true;
+ }catch(e){needHist=true;histNote();return false;}
+ finally{histBusy=false;}}
 const setS=(id,v)=>{$(id).value=v;$(id).oninput&&$(id).oninput();};
 function learnUI(d){
  if(d.learn_n>0)$("learnNote").textContent="Learned volume: "+Math.round(d.tank_learned)+" L from "+d.learn_n+" fills."+(d.learn_en&&d.learn_n>=3?" Applied automatically.":" Needs 3 fills before it is applied.");
@@ -320,9 +333,10 @@ const LS={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set
 const FB_DEFAULT={db:"https://watermotor-default-rtdb.asia-southeast1.firebasedatabase.app",key:"AIzaSyDf6Te_BKACOw_OMZBun8EmaEQfKhbOi0c"}; // optional: paste your Firebase database URL and web API key here to hide those fields
 const FB=(()=>{let c={db:FB_DEFAULT.db,key:FB_DEFAULT.key};if(!c.db||!c.key){try{const s=JSON.parse(localStorage.getItem("fbcfg")||"null");if(s&&s.db&&s.key)c={db:s.db,key:s.key};}catch(e){}}return c;})();
 function hideCfg(){$("fbCfg").hidden=!!(FB.db&&FB.key);}
+const fetchT=(u,o,ms)=>{const ac=new AbortController(),t=setTimeout(()=>ac.abort(),ms||10000);return fetch(u,Object.assign({},o,{signal:ac.signal})).finally(()=>clearTimeout(t));};
 let cloud=null;
 async function cloudAuth(url,opt,mapper){
- const r=await fetch(url,opt),d=await r.json();
+ const r=await fetchT(url,opt),d=await r.json();
  if(!r.ok)throw new Error((d.error&&d.error.message)||"Sign-in failed");
  const t=mapper(d);cloud.idToken=t.id;cloud.refresh=t.ref;cloud.exp=Date.now()+(+t.ex-300)*1000;
  LS.set("fb",JSON.stringify({db:cloud.db,key:cloud.key,email:cloud.email,refresh:cloud.refresh}));}
@@ -336,7 +350,7 @@ async function cloudToken(){
   d=>({id:d.id_token,ref:d.refresh_token,ex:d.expires_in}));
  return cloud.idToken;}
 async function db(method,path,body){
- const t=await cloudToken(),r=await fetch(cloud.db+path+".json?auth="+t,{method,body:body===undefined?undefined:JSON.stringify(body)});
+ const t=await cloudToken(),r=await fetchT(cloud.db+path+".json?auth="+t,{method,body:body===undefined?undefined:JSON.stringify(body)});
  if(!r.ok)throw new Error("Database error "+r.status);return r.json();}
 const JR=v=>({json:async()=>v});
 async function F(u,o){if(!u.startsWith("cloud:"))return fetch(u,o);return cloudFetch(u.slice(6));}
@@ -353,7 +367,7 @@ async function cloudFetch(p){
  if(path!=="/api/calibrate")return JR({ok:true});
  for(let i=0;i<16;i++){await new Promise(r=>setTimeout(r,1500));const a=await db("GET","/pump/ack");if(a&&a.key===k)return JR(a.result);}
  throw new Error("no answer from the controller");}
-function useCloud(){base="cloud:";synced=false;fails=0;S.stale=false;$("conn").textContent="Connecting…";tick();}
+function useCloud(){base="cloud:";needHist=true;synced=false;fails=0;S.stale=false;$("conn").textContent="Connecting…";tick();}
 $("fbConnect").onclick=async()=>{const m=$("fbMsg");m.textContent="Signing in…";
  try{const db0=(FB.db||$("fbDb").value).trim().replace(/\/$/,""),key0=(FB.key||$("fbKey").value).trim();
   if(!db0||!key0){m.textContent="Enter the database URL and API key once. After that only email and password are needed.";return;}
@@ -493,8 +507,8 @@ async function tick(){
  if(base){
   try{const r=await F(base+"/api/status");const d=await r.json();
    S={pct:d.level_pct,dist:d.distance_cm,pump:d.pump,mode:d.mode,runMin:d.run_min,fault:d.fault||"",latched:!!d.fault_latched,stale:false};fails=0;
-   syncUI(d);learnUI(d);cfg.on=+d.on_pct||cfg.on;cfg.off=+d.off_pct||cfg.off;if(tickN++%12===0)await loadHist();$("conn").textContent="Connected";
-  }catch(e){$("conn").textContent="Can't reach pump";if(++fails>=2)S.stale=true;}
+   syncUI(d);learnUI(d);cfg.on=+d.on_pct||cfg.on;cfg.off=+d.off_pct||cfg.off;const due=tickN++%12===0;if(needHist||due)loadHist();$("conn").textContent="Connected";
+  }catch(e){$("conn").textContent="Can't reach pump";needHist=true;histNote();if(++fails>=2)S.stale=true;}
  }else{ // demo simulation
   const was=S.pump;if(S.mode==="auto"){if(S.pct<cfg.on)S.pump=true;if(S.pct>=cfg.off)S.pump=false;}if(S.fault)S.pump=false;
   S.pct+=S.pump?2.5:-0.7;S.pct=Math.min(100,Math.max(0,S.pct));
@@ -513,8 +527,13 @@ $("mAuto").onclick=()=>{S.mode="auto";send({mode:"auto"});render();};
 $("mMan").onclick=()=>{S.mode="manual";send({mode:"manual"});render();};
 $("pOn").onclick=()=>{if(S.mode==="manual"&&!S.fault){S.pump=true;send({pump:1});render();}};
 $("pOff").onclick=()=>{if(S.mode==="manual"){S.pump=false;send({pump:0});render();}};
-$("connect").onclick=()=>{const v=$("ip").value.trim();base=v?"http://"+v.replace(/^https?:\/\//,""):"";$("conn").textContent=base?"Connecting…":"Demo mode";};
+$("connect").onclick=()=>{const v=$("ip").value.trim();base=v?"http://"+v.replace(/^https?:\/\//,""):"";needHist=!!base;$("conn").textContent=base?"Connecting…":"Demo mode";};
 demoHist();
 for(let i=0;i<24;i++){S.pct+=(Math.random()-.4)*3;push();}
-autoCloud();hideCfg();tick();setInterval(tick,5000);
+autoCloud();hideCfg();
+if(base){H=[];try{const c=JSON.parse(LS.get("hcache")||"null");if(c&&c.H&&c.H.length){H=c.H;histAt=new Date(c.t);}}catch(e){}needHist=true;}
+histNote();tick();setInterval(tick,5000);
+addEventListener("online",()=>{needHist=true;tick();});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){needHist=true;tick();}});
+$("histRefresh").onclick=()=>{$("histNote").textContent="Refreshing...";loadHist();};
 </script></body></html>
