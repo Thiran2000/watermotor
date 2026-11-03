@@ -527,11 +527,32 @@ function checkSave(d){if(!saveChk)return;const c=saveChk.c;
  const ok=+d.on_pct===c.on&&+d.off_pct===c.off&&(c.empty==null||Math.abs(+d.empty_cm-c.empty)<0.3)&&(c.full==null||Math.abs(+d.full_cm-c.full)<0.3)&&(c.learn||+d.tank===c.tank)&&!!d.sch_en===!!c.schEn&&+d.sch_s===c.schS&&+d.sch_e===c.schE;
  if(ok){saveChk=null;distEdited=false;saveText("Saved to controller ✓",2500);}
  else if(Date.now()>saveChk.t){saveChk=null;saveText("Not confirmed yet",4000);$("conn").textContent="Controller has not confirmed the save";}}
+// ---- level filter: below 60% the sensor is unreliable and jumps up and down (56 -> 60 -> 58).
+// While the pump is OFF the water can only go down, so the shown level is never allowed to rise.
+// It may only rise while the pump is RUNNING. A real, steady rise with the pump off
+// (for example inflow from another source) is accepted after 10 minutes so it can never get stuck low.
+const LF_SAFE=60,LF_HOLD=10*60*1000,LF_MAXAGE=6*3600*1000;
+let lfShown=null,lfRiseSince=null;
+try{const c=JSON.parse(LS.get("lvlf")||"null");if(c&&isFinite(c.p)&&Date.now()-c.t<LF_MAXAGE)lfShown=c.p;}catch(e){}
+function levelFilter(raw,pumpOn,fault){
+ if(!isFinite(raw))return lfShown==null?0:lfShown;
+ if(fault||lfShown==null||pumpOn){lfShown=raw;lfRiseSince=null;}       // pump running (or first reading): follow the sensor, up or down
+ else if(raw<=lfShown){lfShown=raw;lfRiseSince=null;}                   // pump off: falling is always accepted
+ else{                                                                  // pump off and the sensor says higher: ignore it
+  if(lfRiseSince==null)lfRiseSince=Date.now();
+  if(Date.now()-lfRiseSince>=LF_HOLD){lfShown=raw;lfRiseSince=null;}   // steady for 10 min, so it is real
+ }
+ LS.set("lvlf",JSON.stringify({p:lfShown,t:Date.now()}));
+ return lfShown;}
+function fixDist(dist,raw,shown){                                       // keep "Distance to water" consistent with the filtered level
+ if(!isFinite(dist)||!isFinite(raw)||Math.abs(raw-shown)<0.01||!isFinite(cfg.empty)||!isFinite(cfg.full))return dist;
+ return cfg.full+(cfg.empty-cfg.full)*(1-shown/100);}
 async function tick(){if(ticking)return;ticking=true;try{await tick0();}finally{ticking=false;}}
 async function tick0(){
  if(base){
   try{const r=await F(base+"/api/status");const d=await r.json();
-   S={pct:d.level_pct,dist:d.distance_cm,pump:held("pump",d.pump),mode:held("mode",d.mode),runMin:d.run_min,fault:d.fault||"",latched:!!d.fault_latched,stale:false};fails=0;
+   const lf=levelFilter(+d.level_pct,!!d.pump,!!d.fault);
+   S={pct:lf,dist:fixDist(d.distance_cm,+d.level_pct,lf),pump:held("pump",d.pump),mode:held("mode",d.mode),runMin:d.run_min,fault:d.fault||"",latched:!!d.fault_latched,stale:false};fails=0;
    syncUI(d);learnUI(d);cfg.on=held("on",+d.on_pct||cfg.on);cfg.off=held("off",+d.off_pct||cfg.off);checkSave(d);const due=tickN++%12===0;if(needHist||due)loadHist();$("conn").textContent="Connected";
   }catch(e){$("conn").textContent="Can't reach pump";needHist=true;histNote();if(++fails>=(Date.now()<fastUntil?6:2))S.stale=true;}
  }else{ // demo simulation
