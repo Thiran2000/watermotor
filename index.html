@@ -200,6 +200,16 @@ section.on>*:nth-child(9){animation-delay:0.40s}
   <div class="grid"><div><label>From</label><input type="time" id="schS" value="22:00"></div><div><label>Until</label><input type="time" id="schE" value="05:00"></div></div>
   <div class="note">Outside the window the pump stays off, unless the tank falls below half of the pump-on level.</div></div>
  <button class="btn" id="save">Save to pump controller</button>
+<div class="card" id="notifCard"><h2>Notifications</h2>
+  <div class="row"><span>Enable notifications</span><input type="checkbox" class="chk" id="nEn"></div>
+  <div class="row" style="margin-top:12px"><span>Pump started or stopped</span><input type="checkbox" class="chk" id="nPump"></div>
+  <div class="row" style="margin-top:12px"><span>Low water level</span><input type="checkbox" class="chk" id="nLow"></div>
+  <label>Alert when the level falls below <span class="val" id="nLowV">20%</span></label><input type="range" id="nLowR" min="5" max="60" value="20">
+  <div class="row" style="margin-top:12px"><span>Tank full</span><input type="checkbox" class="chk" id="nFull"></div>
+  <div class="row" style="margin-top:12px"><span>Sensor or pump fault</span><input type="checkbox" class="chk" id="nFault"></div>
+  <div class="row" style="margin-top:12px"><span>Connection lost or restored</span><input type="checkbox" class="chk" id="nConn"></div>
+  <button class="btn alt" id="nTest">Send test notification</button>
+  <div class="note" id="nMsg"></div></div>
 <div class="card"><h2>Remote access (Firebase)</h2>
   <div id="fbCfg"><label>Database URL (needed only once)</label><input type="text" id="fbDb" placeholder="https://your-project-default-rtdb...firebasedatabase.app">
   <label>Web API key (needed only once)</label><input type="text" id="fbKey"></div>
@@ -430,13 +440,56 @@ $("sug").onclick=()=>{readCfg();const w=H.slice(-8,-1).filter(x=>x.l>0),m=$("sug
  m.textContent="You use about "+Math.round(use)+" L a day. Turning on below "+on+"% keeps about "+Math.round(on/100*cfg.tank)+" L in reserve, and turning off above "+off+"% leaves room to avoid overflow."+(st>6?" The pump starts often, so the gap was widened.":"");
  $("sugApply").hidden=false;};
 $("sugApply").onclick=()=>{setS("onR",pend.on);setS("offR",pend.off);readCfg();$("sugApply").hidden=true;$("sugMsg").textContent="Applied. Tap Save to send it to the pump controller.";};
+// ---- notifications (work in the browser and in the installed Chrome app shortcut) ----
+const NT=(()=>{let c={en:false,pump:true,low:true,lowAt:20,full:true,fault:true,conn:true};try{Object.assign(c,JSON.parse(LS.get("notif")||"{}"));}catch(e){}return c;})();
+const nCan=()=>typeof Notification!=="undefined";
+function nSave(){LS.set("notif",JSON.stringify(NT));}
+function nMsg(t){$("nMsg").textContent=t;}
+function nUI(){
+ $("nEn").checked=NT.en&&nCan()&&Notification.permission==="granted";
+ [["nPump","pump"],["nLow","low"],["nFull","full"],["nFault","fault"],["nConn","conn"]].forEach(([i,k])=>$(i).checked=!!NT[k]);
+ $("nLowR").value=NT.lowAt;$("nLowV").textContent=NT.lowAt+"%";
+ const off=!$("nEn").checked;["nPump","nLow","nLowR","nFull","nFault","nConn","nTest"].forEach(i=>$(i).disabled=off);
+ if(!nCan())nMsg("This browser does not support notifications. On iPhone, add the app to the Home Screen first.");
+ else if(Notification.permission==="denied")nMsg("Notifications are blocked. In Chrome, open the site settings for this app and allow Notifications.");
+ else nMsg("Alerts are sent while the app is open or running in the background. When the app is on screen they are not repeated.");}
+async function notify(title,body,tag,force){
+ if(!nCan()||!NT.en||Notification.permission!=="granted")return;
+ if(!force&&!document.hidden)return;                                  // you are already looking at the app
+ const o={body:body,tag:tag||"pump",renotify:true,icon:"icon-192.png",badge:"icon-192.png",vibrate:[200,100,200],data:{url:"./"}};
+ try{
+  const reg=navigator.serviceWorker&&await Promise.race([navigator.serviceWorker.getRegistration(),new Promise(r=>setTimeout(r,1500))]);
+  if(reg&&reg.showNotification){await reg.showNotification(title,o);return;}   // the only way Chrome on Android allows it
+ }catch(e){}
+ try{new Notification(title,o);}catch(e){}}
+$("nEn").onchange=async()=>{
+ if(!nCan()){$("nEn").checked=false;nUI();return;}
+ if($("nEn").checked){
+  let r=Notification.permission;if(r==="default"){try{r=await Notification.requestPermission();}catch(e){}}
+  NT.en=r==="granted";
+  if(NT.en)notify("Notifications are on","You will be told about the pump and the water level.","test",true);
+ }else NT.en=false;
+ nSave();nUI();};
+[["nPump","pump"],["nLow","low"],["nFull","full"],["nFault","fault"],["nConn","conn"]].forEach(([i,k])=>$(i).onchange=()=>{NT[k]=$(i).checked;nSave();});
+$("nLowR").oninput=()=>{NT.lowAt=+$("nLowR").value;$("nLowV").textContent=NT.lowAt+"%";nSave();};
+$("nTest").onclick=()=>notify("Pump Monitor","Test notification. Water level "+Math.round(S.pct)+"%.","test",true);
+let nLowSent=false,nFullSent=false;
+function nLevels(){                                                    // level alerts fire once, then re-arm after the level recovers
+ if(S.fault||S.stale)return;
+ const p=Math.round(S.pct),fullAt=Math.min(cfg.off,95);
+ if(p<=NT.lowAt){if(!nLowSent){nLowSent=true;if(NT.low)notify("Low water level","The tank is at "+p+"%.","low");}}
+ else if(p>NT.lowAt+5)nLowSent=false;
+ if(p>=fullAt){if(!nFullSent){nFullSent=true;if(NT.full)notify("Tank full","The tank has reached "+p+"%.","full");}}
+ else if(p<fullAt-5)nFullSent=false;}
+nUI();
 const EV=[];let pp=null,pf=null,ps=null,lastUp=null;
 const hhmm=()=>new Date().toTimeString().slice(0,5);
 function addEv(t){EV.unshift({t,w:hhmm()});if(EV.length>6)EV.pop();}
 function track(){
- if(pp!==null&&S.pump!==pp)addEv(S.pump?"Pump started":"Pump stopped");
- if(pf!==null&&S.fault!==pf)addEv(S.fault?"Fault: "+S.fault.replace("_"," "):"Fault cleared");
- if(ps!==null&&S.stale!==ps)addEv(S.stale?"Connection lost":"Connection restored");
+ if(pp!==null&&S.pump!==pp){addEv(S.pump?"Pump started":"Pump stopped");if(NT.pump)notify(S.pump?"Pump started":"Pump stopped","Water level "+Math.round(S.pct)+"%.","pump");}
+ if(pf!==null&&S.fault!==pf){addEv(S.fault?"Fault: "+S.fault.replace("_"," "):"Fault cleared");if(NT.fault)notify(S.fault?"Pump fault":"Fault cleared",S.fault?(FM[S.fault]||"Sensor fault. The pump has been stopped."):"The pump controller is working normally again.","fault");}
+ if(ps!==null&&S.stale!==ps){addEv(S.stale?"Connection lost":"Connection restored");if(NT.conn)notify(S.stale?"Connection lost":"Connection restored",S.stale?"Lost contact with the pump controller.":"Connected to the pump controller again.","conn");}
+ nLevels();
  pp=S.pump;pf=S.fault;ps=S.stale;if(!S.stale)lastUp=new Date();}
 function fmtH(h){if(!isFinite(h)||h<0)return "--";if(h<1)return Math.max(1,Math.round(h*60))+" min";if(h<48)return h.toFixed(1)+" h";return Math.round(h/24)+" days";}
 function renderHome(){
